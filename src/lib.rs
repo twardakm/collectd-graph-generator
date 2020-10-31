@@ -13,21 +13,7 @@ pub fn run(config: Config) -> Result<()> {
         .with_end(config.end)
         .with_width(config.width)
         .with_height(config.height)
-        .with_process_rss(
-            config.input_dir,
-            String::from("firefox"),
-            String::from("#ff0000"),
-        )
-        .with_process_rss(
-            config.input_dir,
-            String::from("dolphin"),
-            String::from("#00ff00"),
-        )
-        .with_process_rss(
-            config.input_dir,
-            String::from("spotify"),
-            String::from("#0000ff"),
-        )
+        .with_all_processes_rss(config.input_dir)
         .exec()
         .context("Failed to execute rrdtool")?;
 

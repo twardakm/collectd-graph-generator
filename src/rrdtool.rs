@@ -1,4 +1,5 @@
 use anyhow::{Context, Result};
+use std::fs::read_dir;
 use std::path::Path;
 use std::process::{Command, Output};
 
@@ -11,6 +12,52 @@ pub struct Rrdtool {
 }
 
 impl Rrdtool {
+    const COLORS: &'static [&'static str] = &[
+        "#ff0022", "#e5ff80", "#f2ba79", "#33cc47", "#bf968f", "#69a653", "#235b8c", "#7f3300",
+        "#446600", "#14004d", "#244020", "#ffbfc8", "#eeff00", "#f2aa79", "#b4cc99", "#bf6060",
+        "#6ea600", "#00708c", "#7f4620", "#5f6600", "#001f4d", "#304010", "#ff80c4", "#ffee00",
+        "#f29979", "#b8cc66", "#b22d3e", "#95a653", "#69858c", "#7f5940", "#665c33", "#00294d",
+        "#403e20", "#ff00aa", "#fff780", "#f2beb6", "#cc6d00", "#b38692", "#a69d7c", "#698c8a",
+        "#7f3920", "#664d1a", "#00334d", "#403520", "#ff00cc", "#ffcc00", "#f27979", "#cc4733",
+        "#b22d62", "#a65800", "#468c7e", "#7f1100", "#661b00", "#003d4d", "#403830", "#ff00ee",
+        "#ffbf40", "#f23d3d", "#cc0000", "#b386b0", "#a64200", "#698c6e", "#733949", "#664d4d",
+        "#004d3d", "#402820", "#ff80f6", "#ffaa00", "#003de6", "#bf6079", "#982db3", "#a62c00",
+        "#468c4f", "#73002e", "#660000", "#004d29", "#401d10", "#cc00ff", "#ffeabf", "#73b0e6",
+        "#bf004d", "#742db3", "#a66953", "#818c69", "#731d4b", "#59000c", "#004d0a", "#401010",
+        "#d580ff", "#ff8800", "#00d6e6", "#bf6093", "#3e2db3", "#a60000", "#8c8169", "#731d62",
+        "#59161f", "#3d4d00", "#402020", "#8800ff", "#ff8c40", "#00e6d6", "#bf8fa9", "#2d50b3",
+        "#994d57", "#8c7769", "#001f73", "#590024", "#4c4700", "#330014", "#a640ff", "#ffd9bf",
+        "#00e6b8", "#b960bf", "#2d62b3", "#992645", "#8c6e69", "#39736f", "#59434c", "#4c3300",
+        "#330022", "#a280ff", "#ffd0bf", "#00e699", "#9360bf", "#aab32d", "#994d75", "#8c3123",
+        "#734b1d", "#59003c", "#4c2900", "#331a2b", "#0022ff", "#ff2200", "#00e67a", "#a38fbf",
+        "#b2982d", "#994d8a", "#800077", "#734139", "#551659", "#4c1f00", "#300033", "#8091ff",
+        "#ff9180", "#00e61f", "#6c60bf", "#b2a159", "#8a4d99", "#7d6080", "#731d1d", "#554359",
+        "#4c3626", "#000733", "#80a2ff", "#f23d55", "#7ee639", "#606cbf", "#b2862d", "#269973",
+        "#550080", "#66334e", "#3a1659", "#4c0a00", "#1a1d33", "#bfd0ff", "#f27989", "#ace639",
+        "#8f96bf", "#b2742d", "#99804d", "#624080", "#633366", "#434359", "#403034", "#001433",
+        "#bfe1ff", "#f23d6d", "#e5bf73", "#8fa3bf", "#b28959", "#99574d", "#000080", "#360066",
+        "#435259", "#402028", "#002233", "#40bfff", "#f23d85", "#e59539", "#8fafbf", "#b2622d",
+        "#8c0013", "#406280", "#413366", "#2d5956", "#401023", "#002933", "#00ccff", "#f2b6ce",
+        "#e55c00", "#609fbf", "#b27d59", "#8c696e", "#007780", "#333a66", "#2d593e", "#401030",
+        "#003329", "#80e6ff", "#f2b6e6", "#e56739", "#0080bf", "#b2502d", "#8c0025", "#408062",
+        "#000e66", "#43594c", "#40303d", "#26332d", "#bff2ff", "#ceb6f2", "#e53d00", "#8fbcbf",
+        "#b22d2d", "#8c004b", "#608071", "#334766", "#3e592d", "#3d1040", "#003300", "#bffffb",
+        "#6d3df2", "#5700d9", "#60bf9f", "#a60085", "#8c697c", "#008022", "#002966", "#585943",
+        "#282040", "#2b331a", "#80ffc3", "#b6b6f2", "#6cd9d2", "#8fbfa9", "#2c00a6", "#8c005e",
+        "#448000", "#4d5766", "#595243", "#161040", "#303300", "#00ff66", "#3d6df2", "#d9ce36",
+        "#60bf86", "#293aa6", "#69238c", "#628040", "#003666", "#59442d", "#323040", "#323326",
+        "#bfffd9", "#3d85f2", "#d9b836", "#8fbf96", "#5374a6", "#77698c", "#668000", "#004466",
+        "#593116", "#202d40", "#332900", "#7fffa1", "#3d9df2", "#cc0088", "#60bf60", "#297ca6",
+        "#31238c", "#7b8040", "#335c66", "#594943", "#203540", "#331b00", "#90ff80", "#79caf2",
+        "#cc00a3", "#bcbf8f", "#5395a6", "#00008c", "#7f7700", "#005266", "#59392d", "#103d40",
+        "#33241a", "#88ff00", "#b6f2de", "#be00cc", "#bfb960", "#299da6", "#696e8c", "#7f6600",
+        "#006652", "#591f16", "#303f40", "#330e00", "#c3ff80", "#bef2b6", "#8800cc", "#bf8000",
+        "#29a69d", "#233f8c", "#7f5500", "#006629", "#592d2d", "#204039", "#332826", "#eaffbf",
+        "#f2eeb6", "#3347cc", "#bfa98f", "#29a65b", "#234d8c", "#7f4400", "#33663a", "#4d264a",
+        "#104029", "#330000", "#ccff00", "#f2da79", "#33adcc", "#bfa38f", "#3aa629", "#69778c",
+        "#7f6240", "#53664d", "#33004d", "#304030",
+    ];
+
     pub fn new() -> Rrdtool {
         Rrdtool {
             command: String::from("rrdtool"),
@@ -58,7 +105,37 @@ impl Rrdtool {
         self
     }
 
-    /// Add process RSS line to graph
+    /// Add RSS of all processes available in input_dir
+    pub fn with_all_processes_rss<'a>(mut self, input_dir: &'a Path) -> Self {
+        let processes = Rrdtool::get_processes_names_from_directory(input_dir);
+
+        let processes = match processes {
+            Ok(processes) => processes,
+            Err(error) => {
+                eprintln!(
+                    "Failed to read processes names from directory {}, error: {}",
+                    input_dir.to_str().unwrap(),
+                    error
+                );
+                return self;
+            }
+        };
+
+        assert!(
+            processes.len() < Rrdtool::COLORS.len(),
+            "Too many processes! We are running out of colors to proceed."
+        );
+
+        let mut i = 0;
+        for process in processes {
+            self = self.with_process_rss(input_dir, process, String::from(Rrdtool::COLORS[i]));
+            i += 1;
+        }
+
+        self
+    }
+
+    /// Add single process RSS line to graph
     pub fn with_process_rss<'a>(
         mut self,
         input_dir: &'a Path,
@@ -78,7 +155,7 @@ impl Rrdtool {
         );
 
         self.args
-            .push(String::from("LINE:") + &process + &color + ":\"" + &process + "\"");
+            .push(String::from("LINE3:") + &process + &color + ":\"" + &process + "\"");
 
         self
     }
@@ -100,12 +177,35 @@ impl Rrdtool {
             ))?;
         Ok(output)
     }
+
+    fn get_processes_names_from_directory<'a>(input_dir: &'a Path) -> Result<Vec<String>> {
+        let paths = read_dir(input_dir).context(format!(
+            "Failed to read directory: {}",
+            input_dir.to_str().unwrap()
+        ))?;
+
+        let processes = paths
+            .filter_map(|path| {
+                path.ok().and_then(|path| {
+                    path.path().file_name().and_then(|name| {
+                        name.to_str()
+                            .and_then(|s| s.strip_prefix("processes-"))
+                            .map(|s| String::from(s))
+                    })
+                })
+            })
+            .collect::<Vec<String>>();
+
+        Ok(processes)
+    }
 }
 
 #[cfg(test)]
 pub mod tests {
     use super::*;
     use anyhow::Result;
+    use std::fs::{create_dir, remove_dir};
+    use std::path::Path;
 
     #[test]
     pub fn rrdtool_builder() -> Result<()> {
@@ -139,7 +239,38 @@ pub mod tests {
             "DEF:firefox=some/path/processes-firefox/ps_rss.rrd:value:AVERAGE",
             rrd.args[0]
         );
-        assert_eq!("LINE:firefox#00ff00:\"firefox\"", rrd.args[1]);
+        assert_eq!("LINE3:firefox#00ff00:\"firefox\"", rrd.args[1]);
+
+        Ok(())
+    }
+
+    #[test]
+    pub fn rrdtool_get_processes_names_from_directory() -> Result<()> {
+        let firefox = Path::new("/tmp/processes-firefox");
+        let chrome = Path::new("/tmp/processes-chrome");
+        let dolphin = Path::new("/tmp/processes-dolphin");
+
+        if !firefox.exists() {
+            create_dir(firefox)?;
+        }
+        if !chrome.exists() {
+            create_dir(chrome)?;
+        }
+        if !dolphin.exists() {
+            create_dir(dolphin)?;
+        }
+
+        let mut processes = Rrdtool::get_processes_names_from_directory(Path::new("/tmp"))?;
+
+        processes.sort();
+        assert_eq!(3, processes.len());
+        assert_eq!("chrome", processes[0]);
+        assert_eq!("dolphin", processes[1]);
+        assert_eq!("firefox", processes[2]);
+
+        remove_dir(firefox)?;
+        remove_dir(chrome)?;
+        remove_dir(dolphin)?;
 
         Ok(())
     }
