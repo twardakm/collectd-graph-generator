@@ -1,0 +1,39 @@
+name: collectd-graph-generator
+version: "0.1.0"
+author: Marcin Twardak <twardakm@gmail.com>
+about: Generates graphs from collectd data
+args:
+    - input:
+        short: i
+        long: input
+        about: Path to the directory with collectd output
+        takes_value: true
+        required: true
+    - out:
+        short: o
+        long: out
+        about: Output filename
+        takes_value: true
+        required: true
+    - width:
+        short: w
+        long: width
+        about: Width of the output image
+        takes_value: true
+        required: true
+    - height:
+        short: h
+        long: height
+        about: Height of the output image
+        takes_value: true
+        required: true
+    - start:
+        long: start
+        about: Start timestamp
+        takes_value: true
+        required: true
+    - end:
+        long: end
+        about: End timestamp
+        takes_value: true
+        required: true
