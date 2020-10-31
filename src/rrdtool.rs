@@ -1,4 +1,5 @@
 use anyhow::{Context, Result};
+use std::path::Path;
 use std::process::{Command, Output};
 
 /// Wrapper holding rrdtool command and parameters
@@ -57,6 +58,31 @@ impl Rrdtool {
         self
     }
 
+    /// Add process RSS line to graph
+    pub fn with_process_rss<'a>(
+        mut self,
+        input_dir: &'a Path,
+        process: String,
+        color: String,
+    ) -> Self {
+        let path = input_dir
+            .join(String::from("processes-") + &process)
+            .join("ps_rss.rrd");
+
+        self.args.push(
+            String::from("DEF:")
+                + &process
+                + "="
+                + path.as_os_str().to_str().unwrap()
+                + ":value:AVERAGE",
+        );
+
+        self.args
+            .push(String::from("LINE:") + &process + &color + ":\"" + &process + "\"");
+
+        self
+    }
+
     /// Add custom argument to rrdtool
     pub fn with_custom_argument(mut self, arg: String) -> Self {
         self.args.push(arg);
@@ -94,8 +120,27 @@ pub mod tests {
         Ok(())
     }
 
+    #[test]
     pub fn rrdtool_simple_exec() -> Result<()> {
         Rrdtool::new().exec().context("Failed to exec rrdtool")?;
+        Ok(())
+    }
+
+    #[test]
+    pub fn rrdtool_with_process_rss() -> Result<()> {
+        let rrd = Rrdtool::new().with_process_rss(
+            Path::new("some/path"),
+            String::from("firefox"),
+            String::from("#00ff00"),
+        );
+
+        assert_eq!(2, rrd.args.len());
+        assert_eq!(
+            "DEF:firefox=some/path/processes-firefox/ps_rss.rrd:value:AVERAGE",
+            rrd.args[0]
+        );
+        assert_eq!("LINE:firefox#00ff00:\"firefox\"", rrd.args[1]);
+
         Ok(())
     }
 }

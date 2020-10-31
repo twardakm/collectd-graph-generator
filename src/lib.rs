@@ -6,19 +6,28 @@ use config::Config;
 use rrdtool::Rrdtool;
 
 pub fn run(config: Config) -> Result<()> {
-    let result = Rrdtool::new()
+    Rrdtool::new()
         .with_subcommand(String::from("graph"))
         .with_output_file(String::from(config.output_filename))
         .with_start(config.start)
         .with_end(config.end)
         .with_width(config.width)
         .with_height(config.height)
-        .with_custom_argument(
-            String::from("DEF:firefox=")
-                + config.input_dir.as_os_str().to_str().unwrap()
-                + ":value:AVERAGE",
+        .with_process_rss(
+            config.input_dir,
+            String::from("firefox"),
+            String::from("#ff0000"),
         )
-        .with_custom_argument(String::from("LINE1:firefox#008080:\"Firefox\""))
+        .with_process_rss(
+            config.input_dir,
+            String::from("dolphin"),
+            String::from("#00ff00"),
+        )
+        .with_process_rss(
+            config.input_dir,
+            String::from("spotify"),
+            String::from("#0000ff"),
+        )
         .exec()
         .context("Failed to execute rrdtool")?;
 
