@@ -29,3 +29,19 @@ $ cargo run -- \
 --start 1604225000 \
 --end 1604226000
 ```
+
+## 0.1.1
+
+### RSS of multiple processes via SSH
+
+In version `0.1.1` support of gathering data over SSH was added:
+
+```bash
+$ cargo run -- \
+--input marcin@192.168.0.163:/var/lib/collectd/marcin-manjaro/ \
+--out "1 - RSS of multiple processes via SSH.png" \
+-w 1024 \
+-h 768 \
+--start 1604253000 \
+--end 1604254000
+```

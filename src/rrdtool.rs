@@ -1,7 +1,8 @@
 use anyhow::{Context, Result};
 use std::fs::read_dir;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::process::{Command, Output};
+use tempfile::TempDir;
 
 /// Wrapper holding rrdtool command and parameters
 pub struct Rrdtool {
@@ -9,6 +10,9 @@ pub struct Rrdtool {
     command: String,
     /// Vector of parameters, passed later to system wide command
     args: Vec<String>,
+    /// In case of network connection this is a handle to temporary
+    /// directory holding rrd data
+    temp_directory: Option<TempDir>,
 }
 
 impl Rrdtool {
@@ -62,6 +66,7 @@ impl Rrdtool {
         Rrdtool {
             command: String::from("rrdtool"),
             args: Vec::new(),
+            temp_directory: None,
         }
     }
 
@@ -107,7 +112,21 @@ impl Rrdtool {
 
     /// Add RSS of all processes available in input_dir
     pub fn with_all_processes_rss<'a>(mut self, input_dir: &'a Path) -> Self {
-        let processes = Rrdtool::get_processes_names_from_directory(input_dir);
+        let directory = self.get_local_path(input_dir);
+
+        let directory = match directory {
+            Ok(directory) => directory,
+            Err(error) => {
+                eprintln!(
+                    "Failed to determine local or network path {}, error: {}",
+                    input_dir.to_str().unwrap(),
+                    error
+                );
+                return self;
+            }
+        };
+
+        let processes = Rrdtool::get_processes_names_from_directory(&directory);
 
         let processes = match processes {
             Ok(processes) => processes,
@@ -128,34 +147,9 @@ impl Rrdtool {
 
         let mut i = 0;
         for process in processes {
-            self = self.with_process_rss(input_dir, process, String::from(Rrdtool::COLORS[i]));
+            self = self.with_process_rss(&directory, process, String::from(Rrdtool::COLORS[i]));
             i += 1;
         }
-
-        self
-    }
-
-    /// Add single process RSS line to graph
-    pub fn with_process_rss<'a>(
-        mut self,
-        input_dir: &'a Path,
-        process: String,
-        color: String,
-    ) -> Self {
-        let path = input_dir
-            .join(String::from("processes-") + &process)
-            .join("ps_rss.rrd");
-
-        self.args.push(
-            String::from("DEF:")
-                + &process
-                + "="
-                + path.as_os_str().to_str().unwrap()
-                + ":value:AVERAGE",
-        );
-
-        self.args
-            .push(String::from("LINE3:") + &process + &color + ":\"" + &process + "\"");
 
         self
     }
@@ -178,6 +172,57 @@ impl Rrdtool {
         Ok(output)
     }
 
+    /// Add process to the graph
+    fn with_process_rss<'a>(mut self, input_dir: &'a Path, process: String, color: String) -> Self {
+        let path = input_dir
+            .join(String::from("processes-") + &process)
+            .join("ps_rss.rrd");
+
+        self.args.push(
+            String::from("DEF:")
+                + &process
+                + "="
+                + path.as_os_str().to_str().unwrap()
+                + ":value:AVERAGE",
+        );
+
+        self.args
+            .push(String::from("LINE3:") + &process + &color + ":\"" + &process + "\"");
+
+        self
+    }
+
+    /// Check if provided path is local or network (SSH)
+    fn get_local_path<'a>(&mut self, input_dir: &'a Path) -> Result<PathBuf> {
+        let re = regex::Regex::new(".*@.*:.*").unwrap();
+
+        match re.is_match(input_dir.to_str().unwrap()) {
+            // Local path
+            false => Ok(input_dir.to_path_buf()),
+
+            // Assume network path
+            true => {
+                self.temp_directory = Some(TempDir::new().unwrap());
+
+                let status = Command::new("scp")
+                    .arg("-r")
+                    .arg("-q")
+                    .arg(String::from(input_dir.to_str().unwrap()) + "/*")
+                    .arg(self.temp_directory.as_ref().unwrap().path().to_path_buf())
+                    .status()
+                    .expect("Failed to execute scp");
+
+                if !status.success() {
+                    eprintln!("Error while executing scp");
+                    return Ok(PathBuf::new());
+                }
+
+                Ok(self.temp_directory.as_ref().unwrap().path().to_path_buf())
+            }
+        }
+    }
+
+    /// Parse collectd results directory to get names of analysed processes
     fn get_processes_names_from_directory<'a>(input_dir: &'a Path) -> Result<Vec<String>> {
         let paths = read_dir(input_dir).context(format!(
             "Failed to read directory: {}",
@@ -271,6 +316,44 @@ pub mod tests {
         remove_dir(firefox)?;
         remove_dir(chrome)?;
         remove_dir(dolphin)?;
+
+        Ok(())
+    }
+
+    #[test]
+    pub fn rrdtool_get_local_path_local() -> Result<()> {
+        let mut rrd = Rrdtool::new();
+        let path = rrd.get_local_path(Path::new("/some/local/path"))?;
+
+        assert_eq!(Path::new("/some/local/path"), path);
+        assert!(!rrd.temp_directory.is_some());
+
+        Ok(())
+    }
+
+    #[test]
+    pub fn rrdtool_get_local_path_network_hostname() -> Result<()> {
+        let mut rrd = Rrdtool::new();
+
+        let processes = vec!["chrome", "dolphin", "firefox"];
+        let temp = TempDir::new().unwrap();
+
+        for process in processes {
+            create_dir(Path::new(temp.path()).join(String::from("processes-") + process))?;
+        }
+
+        let origin_path =
+            String::from(String::from("marcin@localhost:") + temp.path().to_str().unwrap());
+        let origin_path = Path::new(&origin_path);
+
+        let local_path = rrd.get_local_path(&origin_path)?;
+
+        assert!(rrd.temp_directory.is_some());
+        assert_ne!(origin_path, local_path);
+        assert!(!local_path.to_str().unwrap().contains("localhost"));
+
+        let paths = read_dir(local_path)?;
+        assert_eq!(3, paths.count());
 
         Ok(())
     }

@@ -1,6 +1,6 @@
 [package]
 name = "cgg"
-version = "0.1.0"
+version = "0.1.1"
 authors = ["Marcin Twardak <twardakm@gmail.com>"]
 edition = "2018"
 
@@ -9,3 +9,5 @@ edition = "2018"
 [dependencies]
 clap = { version = "3.0.0-beta.2", features = ["yaml"] }
 anyhow = "1.0.32"
+regex = "1.4.1"
+tempfile = "3.0.1"
