@@ -27,13 +27,27 @@ args:
         about: Height of the output image
         takes_value: true
         required: true
+    - timespan:
+        short: t
+        long: timespan
+        about: Descriptive timespan of data range to use, e.g. "last 2 hours"
+        takes_value: true
+        conflicts_with:
+            - start
+            - end
     - start:
         long: start
         about: Start timestamp
         takes_value: true
-        required: true
+        conflicts_with:
+            - timespan
+        requires:
+            - end
     - end:
         long: end
         about: End timestamp
         takes_value: true
-        required: true
+        conflicts_with:
+            - timespan
+        requires:
+            - end
