@@ -20,13 +20,13 @@ args:
         long: width
         about: Width of the output image
         takes_value: true
-        required: true
+        default_value: "1024"
     - height:
         short: h
         long: height
         about: Height of the output image
         takes_value: true
-        required: true
+        default_value: "768"
     - timespan:
         short: t
         long: timespan
