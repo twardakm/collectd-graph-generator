@@ -45,3 +45,27 @@ $ cargo run -- \
 --start 1604253000 \
 --end 1604254000
 ```
+
+## 0.1.2
+
+### Human readable timespans
+
+In version `0.1.2` support for human readable timespan was added:
+
+```bash
+$ cargo run -- \
+--input marcin@192.168.0.163:/var/lib/collectd/marcin-manjaro/ \
+--out "1 - RSS of multiple processes via SSH.png" \
+-w 1024 \
+-h 768 \
+-t "last 2 hours"
+```
+
+Currently supported are:
+- seconds
+- minutes
+- hours
+- days
+- weeks
+- months
+- years
