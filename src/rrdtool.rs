@@ -251,6 +251,7 @@ pub mod tests {
     use anyhow::Result;
     use std::fs::{create_dir, remove_dir};
     use std::path::Path;
+    use whoami::username;
 
     #[test]
     pub fn rrdtool_builder() -> Result<()> {
@@ -342,8 +343,7 @@ pub mod tests {
             create_dir(Path::new(temp.path()).join(String::from("processes-") + process))?;
         }
 
-        let origin_path =
-            String::from(String::from("marcin@localhost:") + temp.path().to_str().unwrap());
+        let origin_path = String::from(username() + "@localhost:" + temp.path().to_str().unwrap());
         let origin_path = Path::new(&origin_path);
 
         let local_path = rrd.get_local_path(&origin_path)?;
