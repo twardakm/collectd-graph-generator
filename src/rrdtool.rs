@@ -162,6 +162,8 @@ impl Rrdtool {
 
     /// Execute command
     pub fn exec(self) -> Result<Output> {
+        println!("Executing {}...", &self.command);
+
         let output = Command::new(&self.command)
             .args(&self.args)
             .output()
@@ -169,6 +171,11 @@ impl Rrdtool {
                 "Failed to execute rrdtool: {}, args: {:?}",
                 self.command, self.args
             ))?;
+
+        println!("status: {}", output.status);
+        print!("stdout: {}", String::from_utf8_lossy(&output.stdout));
+        println!("stderr: {}", String::from_utf8_lossy(&output.stderr));
+
         Ok(output)
     }
 
@@ -251,7 +258,6 @@ pub mod tests {
     use anyhow::Result;
     use std::fs::{create_dir, remove_dir};
     use std::path::Path;
-    use whoami::username;
 
     #[test]
     pub fn rrdtool_builder() -> Result<()> {
@@ -343,7 +349,8 @@ pub mod tests {
             create_dir(Path::new(temp.path()).join(String::from("processes-") + process))?;
         }
 
-        let origin_path = String::from(username() + "@localhost:" + temp.path().to_str().unwrap());
+        let origin_path =
+            String::from(whoami::username() + "@localhost:" + temp.path().to_str().unwrap());
         let origin_path = Path::new(&origin_path);
 
         let local_path = rrd.get_local_path(&origin_path)?;
