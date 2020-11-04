@@ -8,7 +8,7 @@ use rrdtool::Rrdtool;
 pub fn run(config: Config) -> Result<()> {
     Rrdtool::new()
         .with_subcommand(String::from("graph"))
-        .with_output_file(String::from(config.output_filename))
+        .with_output_file(String::from(config.output_filename), config.input_dir)
         .with_start(config.start)
         .with_end(config.end)
         .with_width(config.width)

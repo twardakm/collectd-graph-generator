@@ -13,6 +13,14 @@ pub struct Rrdtool {
     /// In case of network connection this is a handle to temporary
     /// directory holding rrd data
     temp_directory: Option<TempDir>,
+    /// Describes if graph is from local machine
+    is_local: bool,
+    /// In case of SSH connection
+    username: Option<String>,
+    /// In case of SSH connection
+    hostname: Option<String>,
+    /// In case of SSH connection
+    local_output: Option<String>,
 }
 
 impl Rrdtool {
@@ -67,6 +75,10 @@ impl Rrdtool {
             command: String::from("rrdtool"),
             args: Vec::new(),
             temp_directory: None,
+            is_local: true,
+            username: None,
+            hostname: None,
+            local_output: None,
         }
     }
 
@@ -77,8 +89,14 @@ impl Rrdtool {
     }
 
     /// Add output file
-    pub fn with_output_file(mut self, output: String) -> Self {
-        self.args.push(output);
+    pub fn with_output_file<'a>(mut self, output: String, input_dir: &'a Path) -> Self {
+        match self.is_local_path(input_dir) {
+            true => self.args.push(output),
+            false => {
+                self.args.push(String::from("/tmp/cgg-out.png"));
+                self.local_output = Some(output);
+            }
+        }
         self
     }
 
@@ -146,6 +164,10 @@ impl Rrdtool {
         );
 
         let mut i = 0;
+        let directory = self
+            .strip_path_from_username_and_hostname(input_dir)
+            .unwrap();
+
         for process in processes {
             self = self.with_process_rss(&directory, process, String::from(Rrdtool::COLORS[i]));
             i += 1;
@@ -161,16 +183,33 @@ impl Rrdtool {
     }
 
     /// Execute command
-    pub fn exec(self) -> Result<Output> {
-        println!("Executing {}...", &self.command);
+    pub fn exec(mut self) -> Result<Output> {
+        print!("Executing {} ", &self.command);
 
-        let output = Command::new(&self.command)
-            .args(&self.args)
-            .output()
-            .context(format!(
-                "Failed to execute rrdtool: {}, args: {:?}",
-                self.command, self.args
-            ))?;
+        let output = match self.is_local {
+            true => {
+                println!("locally...");
+                Command::new(&self.command)
+                    .args(&self.args)
+                    .output()
+                    .context(format!(
+                        "Failed to execute rrdtool: {}, args: {:?}",
+                        self.command, self.args
+                    ))?
+            }
+            false => {
+                println!("remotely...");
+                self.args
+                    .insert(0, self.username.unwrap() + "@" + &self.hostname.unwrap());
+                self.args.insert(1, self.command);
+                let output = Command::new("ssh").args(self.args).output()?;
+                Command::new("scp")
+                    .args(&["/tmp/cgg-out.png", &self.local_output.unwrap()])
+                    .output()
+                    .unwrap();
+                output
+            }
+        };
 
         println!("status: {}", output.status);
         print!("stdout: {}", String::from_utf8_lossy(&output.stdout));
@@ -199,16 +238,14 @@ impl Rrdtool {
         self
     }
 
-    /// Check if provided path is local or network (SSH)
+    /// Get path to local resources (if SSH scp it to local PC)
     fn get_local_path<'a>(&mut self, input_dir: &'a Path) -> Result<PathBuf> {
-        let re = regex::Regex::new(".*@.*:.*").unwrap();
-
-        match re.is_match(input_dir.to_str().unwrap()) {
+        match self.is_local_path(input_dir) {
             // Local path
-            false => Ok(input_dir.to_path_buf()),
+            true => Ok(input_dir.to_path_buf()),
 
             // Assume network path
-            true => {
+            false => {
                 self.temp_directory = Some(TempDir::new().unwrap());
 
                 let status = Command::new("scp")
@@ -227,6 +264,33 @@ impl Rrdtool {
                 Ok(self.temp_directory.as_ref().unwrap().path().to_path_buf())
             }
         }
+    }
+
+    /// It strips remote directory from username and hostname
+    fn strip_path_from_username_and_hostname<'a>(
+        &mut self,
+        input_dir: &'a Path,
+    ) -> Result<PathBuf> {
+        match self.is_local_path(input_dir) {
+            true => Ok(input_dir.to_path_buf()),
+            false => {
+                let re = regex::Regex::new("(.*)@(.*):(.*)").unwrap();
+                let captures = re.captures(input_dir.to_str().unwrap()).unwrap();
+                self.username = Some(captures[1].to_string());
+                self.hostname = Some(captures[2].to_string());
+
+                Ok(PathBuf::from(String::from(
+                    captures.get(3).unwrap().as_str(),
+                )))
+            }
+        }
+    }
+
+    /// Check if provided path is local or network (SSH)
+    fn is_local_path<'a>(&mut self, input_dir: &'a Path) -> bool {
+        let re = regex::Regex::new(".*@.*:.*").unwrap();
+        self.is_local = !re.is_match(input_dir.to_str().unwrap());
+        self.is_local
     }
 
     /// Parse collectd results directory to get names of analysed processes
@@ -262,7 +326,7 @@ pub mod tests {
     #[test]
     pub fn rrdtool_builder() -> Result<()> {
         let rrd = Rrdtool::new()
-            .with_output_file(String::from("out.png"))
+            .with_output_file(String::from("out.png"), Path::new("/some/local"))
             .with_subcommand(String::from("graph"))
             .with_start(123456)
             .with_end(1234567);
@@ -362,6 +426,54 @@ pub mod tests {
         let paths = read_dir(local_path)?;
         assert_eq!(3, paths.count());
 
+        Ok(())
+    }
+
+    #[test]
+    pub fn rrdtool_strip_path_from_username_and_hostname_local() -> Result<()> {
+        let mut rrd = Rrdtool::new();
+        let path = rrd
+            .strip_path_from_username_and_hostname(Path::new("/some/local/path"))
+            .unwrap();
+
+        assert_eq!(Path::new("/some/local/path"), path);
+        assert_eq!(None, rrd.hostname);
+        assert_eq!(None, rrd.username);
+
+        Ok(())
+    }
+
+    #[test]
+    pub fn rrdtool_strip_path_from_username_and_hostname_network() -> Result<()> {
+        let mut rrd = Rrdtool::new();
+        let path = rrd
+            .strip_path_from_username_and_hostname(Path::new("marcin@some-host:/some/remote/path"))
+            .unwrap();
+
+        assert_eq!(Path::new("/some/remote/path"), path);
+        assert_eq!(Some(String::from("some-host")), rrd.hostname);
+        assert_eq!(Some(String::from("marcin")), rrd.username);
+
+        Ok(())
+    }
+
+    #[test]
+    pub fn rrdtool_with_output_file_local() -> Result<()> {
+        let rrd =
+            Rrdtool::new().with_output_file(String::from("out.png"), Path::new("/some/local/path"));
+
+        assert_eq!("out.png", rrd.args[0]);
+        Ok(())
+    }
+
+    #[test]
+    pub fn rrdtool_with_output_file_remote() -> Result<()> {
+        let rrd = Rrdtool::new().with_output_file(
+            String::from("out.png"),
+            Path::new("marcin@10.0.0.1:/some/remote/path"),
+        );
+
+        assert_eq!("/some/remote/path/out.png", rrd.args[0]);
         Ok(())
     }
 }
