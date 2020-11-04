@@ -14,7 +14,7 @@ args:
         long: out
         about: Output filename
         takes_value: true
-        required: true
+        default_value: "out.png"
     - width:
         short: w
         long: width
