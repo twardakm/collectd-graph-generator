@@ -224,16 +224,28 @@ impl Rrdtool {
                 Command::new("scp")
                     .args(&["/tmp/cgg-out.png", &self.local_output.as_ref().unwrap()])
                     .output()
-                    .unwrap();
-                output
+                    .context("Failed to execute SSH")?;
+
+                match output.status.success() {
+                    true => Command::new("scp")
+                        .args(&["/tmp/cgg-out.png", &self.local_output.as_ref().unwrap()])
+                        .output()
+                        .context("Failed to scp result image back to host")?,
+                    false => output,
+                }
             }
         };
 
-        println!("status: {}", output.status);
-        print!("stdout: {}", String::from_utf8_lossy(&output.stdout));
-        println!("stderr: {}", String::from_utf8_lossy(&output.stderr));
+        match output.status.success() {
+            true => Ok(output),
+            false => {
+                eprintln!("status: {}", output.status);
+                eprint!("stdout: {}", String::from_utf8_lossy(&output.stdout));
+                eprintln!("stderr: {}", String::from_utf8_lossy(&output.stderr));
 
-        Ok(output)
+                anyhow::bail!("Failed to execute command!");
+            }
+        }
     }
 
     /// Add process to the graph
