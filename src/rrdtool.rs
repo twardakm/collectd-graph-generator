@@ -2,7 +2,6 @@ use anyhow::{Context, Result};
 use std::fs::read_dir;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Output};
-use tempfile::TempDir;
 
 /// Wrapper holding rrdtool command and parameters
 pub struct Rrdtool {
@@ -14,9 +13,6 @@ pub struct Rrdtool {
     command: String,
     /// Vector of parameters, passed later to system wide command
     args: Vec<String>,
-    /// In case of network connection this is a handle to temporary
-    /// directory holding rrd data
-    temp_directory: Option<TempDir>,
     /// In case of SSH connection
     username: Option<String>,
     /// In case of SSH connection
@@ -87,7 +83,6 @@ impl Rrdtool {
             input_dir: input_dir,
             command: String::from("rrdtool"),
             args: Vec::new(),
-            temp_directory: None,
             username: username,
             hostname: hostname,
             local_output: None,
@@ -226,9 +221,7 @@ impl Rrdtool {
         match output.status.success() {
             true => Ok(output),
             false => {
-                eprintln!("status: {}", output.status);
-                eprint!("stdout: {}", String::from_utf8_lossy(&output.stdout));
-                eprintln!("stderr: {}", String::from_utf8_lossy(&output.stderr));
+                Rrdtool::print_process_command_output(output);
 
                 anyhow::bail!("Failed to execute command!");
             }
@@ -339,9 +332,7 @@ impl Rrdtool {
             .context("Failed to execute SSH")?;
 
         if !output.status.success() {
-            eprintln!("status: {}", output.status);
-            eprint!("stdout: {}", String::from_utf8_lossy(&output.stdout));
-            eprintln!("stderr: {}", String::from_utf8_lossy(&output.stderr));
+            Rrdtool::print_process_command_output(output);
 
             anyhow::bail!(
                 "Failed to list remote directories in {}!",
@@ -359,6 +350,12 @@ impl Rrdtool {
 
         Ok(processes)
     }
+
+    fn print_process_command_output(output: std::process::Output) {
+        eprintln!("status: {}", output.status);
+        eprint!("stdout: {}", String::from_utf8_lossy(&output.stdout));
+        eprintln!("stderr: {}", String::from_utf8_lossy(&output.stderr));
+    }
 }
 
 #[cfg(test)]
@@ -367,6 +364,7 @@ pub mod tests {
     use anyhow::Result;
     use std::fs::{create_dir, remove_dir};
     use std::path::Path;
+    use tempfile::TempDir;
 
     #[test]
     pub fn rrdtool_builder() -> Result<()> {
