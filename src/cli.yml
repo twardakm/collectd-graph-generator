@@ -51,3 +51,8 @@ args:
             - timespan
         requires:
             - end
+    - processes:
+        long: processes
+        about: List of processes to generate graph for, separated by ","
+        takes_value: true
+

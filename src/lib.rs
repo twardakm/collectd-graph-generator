@@ -13,7 +13,7 @@ pub fn run(config: Config) -> Result<()> {
         .with_end(config.end)
         .with_width(config.width)
         .with_height(config.height)
-        .with_all_processes_rss()
+        .with_processes_rss(config.processes)
         .exec()
         .context("Failed to execute rrdtool")?;
 

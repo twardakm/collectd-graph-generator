@@ -17,6 +17,8 @@ pub struct Config<'a> {
     pub start: u64,
     /// End timestamp
     pub end: u64,
+    /// List of processes to generate graph for
+    pub processes: Option<Vec<String>>,
 }
 
 impl<'a> Config<'a> {
@@ -64,6 +66,14 @@ impl<'a> Config<'a> {
             ),
         };
 
+        let processes = match cli.value_of("processes") {
+            Some(processes) => Some(
+                Config::parse_processes(String::from(processes))
+                    .context(format!("Cannot parse processes {}", processes))?,
+            ),
+            None => None,
+        };
+
         Ok(Config {
             input_dir: Path::new(input),
             output_filename: output,
@@ -71,6 +81,7 @@ impl<'a> Config<'a> {
             height: height,
             start: start,
             end: end,
+            processes: processes,
         })
     }
 
@@ -143,6 +154,14 @@ impl<'a> Config<'a> {
             }
         }
     }
+
+    /// Return vector of processes to draw graph for from CLI provided list
+    fn parse_processes(processes: String) -> anyhow::Result<Vec<String>> {
+        Ok(processes
+            .split(",")
+            .map(|s| String::from(s))
+            .collect::<Vec<String>>())
+    }
 }
 
 #[cfg(test)]
@@ -200,6 +219,16 @@ pub mod tests {
 
         assert!(864001 >= (now - start));
         assert_eq!(864000, end - start);
+
+        Ok(())
+    }
+
+    #[test]
+    pub fn parse_processes_3_processes() -> Result<()> {
+        let mut processes = Config::parse_processes(String::from("firefox,chrome,dolphin"))?;
+
+        processes.sort();
+        assert_eq!(vec!("chrome", "dolphin", "firefox"), processes);
 
         Ok(())
     }

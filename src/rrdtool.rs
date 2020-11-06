@@ -136,7 +136,7 @@ impl Rrdtool {
     }
 
     /// Add RSS of all processes available in input_dir
-    pub fn with_all_processes_rss<'a>(&mut self) -> &mut Self {
+    pub fn with_processes_rss<'a>(&mut self, processes_to_draw: Option<Vec<String>>) -> &mut Self {
         let processes = self.get_processes_names_from_directory();
 
         let processes = match processes {
@@ -149,6 +149,8 @@ impl Rrdtool {
                 return self;
             }
         };
+
+        let processes = Rrdtool::filter_processes(processes, processes_to_draw).unwrap();
 
         assert!(
             processes.len() < Rrdtool::COLORS.len(),
@@ -351,6 +353,23 @@ impl Rrdtool {
         Ok(processes)
     }
 
+    /// If processes_to_draw is Some, returns only the processes in both vectors
+    fn filter_processes(
+        processes: Vec<String>,
+        processes_to_draw: Option<Vec<String>>,
+    ) -> Result<Vec<String>> {
+        match processes_to_draw {
+            None => Ok(processes),
+            Some(processes_to_draw) => Ok(processes
+                .into_iter()
+                .filter_map(|process| match processes_to_draw.contains(&process) {
+                    true => Some(process),
+                    false => None,
+                })
+                .collect::<Vec<String>>()),
+        }
+    }
+
     fn print_process_command_output(output: std::process::Output) {
         eprintln!("status: {}", output.status);
         eprint!("stdout: {}", String::from_utf8_lossy(&output.stdout));
@@ -524,6 +543,45 @@ pub mod tests {
         assert_eq!("/some/remote/path/", path);
         assert_eq!("twardak", username.unwrap());
         assert_eq!("10.0.0.52", hostname.unwrap());
+
+        Ok(())
+    }
+
+    #[test]
+    pub fn rrdtool_filter_processes_none() -> Result<()> {
+        let processes = vec![
+            String::from("firefox"),
+            String::from("chrome"),
+            String::from("dolphin"),
+        ];
+        let filtered = Rrdtool::filter_processes(processes.to_vec(), None)?;
+        assert_eq!(processes, filtered);
+
+        Ok(())
+    }
+
+    #[test]
+    pub fn rrdtool_filter_processes_some() -> Result<()> {
+        let processes = vec![
+            String::from("firefox"),
+            String::from("chrome"),
+            String::from("dolphin"),
+            String::from("notepad"),
+        ];
+
+        let filter = vec![
+            String::from("dolphin"),
+            String::from("firefox"),
+            String::from("notes"),
+        ];
+
+        let mut filtered = Rrdtool::filter_processes(processes.to_vec(), Some(filter.to_vec()))?;
+        filtered.sort();
+
+        assert_eq!(
+            vec![String::from("dolphin"), String::from("firefox")],
+            filtered
+        );
 
         Ok(())
     }
