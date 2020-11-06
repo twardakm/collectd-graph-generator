@@ -142,20 +142,7 @@ impl Rrdtool {
 
     /// Add RSS of all processes available in input_dir
     pub fn with_all_processes_rss<'a>(&mut self) -> &mut Self {
-        let directory = self.get_local_path();
-
-        let directory = match directory {
-            Ok(directory) => directory,
-            Err(error) => {
-                eprintln!(
-                    "Failed to determine local or network path {}, error: {}",
-                    self.input_dir, error
-                );
-                return self;
-            }
-        };
-
-        let processes = Rrdtool::get_processes_names_from_directory(&directory);
+        let processes = self.get_processes_names_from_directory();
 
         let processes = match processes {
             Ok(processes) => processes,
@@ -273,41 +260,6 @@ impl Rrdtool {
         self
     }
 
-    /// Get path to local resources (if SSH scp it to local PC)
-    fn get_local_path<'a>(&mut self) -> Result<PathBuf> {
-        match self.target {
-            // Local path
-            Target::Local => Ok(PathBuf::from(self.input_dir.as_str())),
-
-            // Assume network path
-            Target::Remote => {
-                self.temp_directory = Some(TempDir::new().unwrap());
-
-                let status = Command::new("scp")
-                    .arg("-r")
-                    .arg("-q")
-                    .arg(
-                        String::from(self.username.as_ref().unwrap())
-                            + "@"
-                            + self.hostname.as_ref().unwrap().as_str()
-                            + ":"
-                            + self.input_dir.as_str()
-                            + "/*",
-                    )
-                    .arg(self.temp_directory.as_ref().unwrap().path().to_path_buf())
-                    .status()
-                    .expect("Failed to execute scp");
-
-                if !status.success() {
-                    eprintln!("Error while executing scp");
-                    return Ok(PathBuf::new());
-                }
-
-                Ok(self.temp_directory.as_ref().unwrap().path().to_path_buf())
-            }
-        }
-    }
-
     /// Parse input path to get target type, path, username and hostname
     fn parse_input_path<'a>(
         input_dir: &'a Path,
@@ -346,11 +298,17 @@ impl Rrdtool {
     }
 
     /// Parse collectd results directory to get names of analysed processes
-    fn get_processes_names_from_directory<'a>(input_dir: &'a Path) -> Result<Vec<String>> {
-        let paths = read_dir(input_dir).context(format!(
-            "Failed to read directory: {}",
-            input_dir.to_str().unwrap()
-        ))?;
+    fn get_processes_names_from_directory<'a>(&self) -> Result<Vec<String>> {
+        match self.target {
+            Target::Local => self.get_processes_names_from_local_directory(),
+            Target::Remote => self.get_processes_names_from_remote_directory(),
+        }
+    }
+
+    /// Get processes from local source
+    fn get_processes_names_from_local_directory<'a>(&self) -> Result<Vec<String>> {
+        let paths = read_dir(&self.input_dir)
+            .context(format!("Failed to read directory: {}", self.input_dir))?;
 
         let processes = paths
             .filter_map(|path| {
@@ -362,6 +320,41 @@ impl Rrdtool {
                     })
                 })
             })
+            .collect::<Vec<String>>();
+
+        Ok(processes)
+    }
+
+    /// Get processes names from remote directory via SSH and ls commands
+    fn get_processes_names_from_remote_directory<'a>(&self) -> Result<Vec<String>> {
+        let output = Command::new("ssh")
+            .args(&[
+                String::from(self.username.as_ref().unwrap())
+                    + "@"
+                    + &self.hostname.as_ref().unwrap(),
+                String::from("ls"),
+                String::from(self.input_dir.as_str()),
+            ])
+            .output()
+            .context("Failed to execute SSH")?;
+
+        if !output.status.success() {
+            eprintln!("status: {}", output.status);
+            eprint!("stdout: {}", String::from_utf8_lossy(&output.stdout));
+            eprintln!("stderr: {}", String::from_utf8_lossy(&output.stderr));
+
+            anyhow::bail!(
+                "Failed to list remote directories in {}!",
+                self.input_dir.as_str()
+            );
+        }
+
+        let output = String::from_utf8_lossy(&output.stdout);
+
+        let processes = output
+            .lines()
+            .filter_map(|path| path.strip_prefix("processes-"))
+            .map(|s| String::from(s))
             .collect::<Vec<String>>();
 
         Ok(processes)
@@ -418,7 +411,7 @@ pub mod tests {
     }
 
     #[test]
-    pub fn rrdtool_get_processes_names_from_directory() -> Result<()> {
+    pub fn rrdtool_get_processes_names_from_directory_local() -> Result<()> {
         let firefox = Path::new("/tmp/processes-firefox");
         let chrome = Path::new("/tmp/processes-chrome");
         let dolphin = Path::new("/tmp/processes-dolphin");
@@ -433,7 +426,9 @@ pub mod tests {
             create_dir(dolphin)?;
         }
 
-        let mut processes = Rrdtool::get_processes_names_from_directory(Path::new("/tmp"))?;
+        let rrd = Rrdtool::new(Path::new("/tmp"));
+
+        let mut processes = rrd.get_processes_names_from_directory()?;
 
         processes.sort();
         assert_eq!(3, processes.len());
@@ -449,38 +444,30 @@ pub mod tests {
     }
 
     #[test]
-    pub fn rrdtool_get_local_path_local() -> Result<()> {
-        let mut rrd = Rrdtool::new(Path::new("/some/local/path"));
-        let path = rrd.get_local_path()?;
-
-        assert_eq!(Path::new("/some/local/path"), path);
-        assert!(!rrd.temp_directory.is_some());
-
-        Ok(())
-    }
-
-    #[test]
-    pub fn rrdtool_get_local_path_network_hostname() -> Result<()> {
+    pub fn rrdtool_get_processes_names_from_remote_directory_network_hostname() -> Result<()> {
         let processes = vec!["chrome", "dolphin", "firefox"];
         let temp = TempDir::new().unwrap();
         let origin_path =
             String::from(whoami::username() + "@localhost:" + temp.path().to_str().unwrap());
         let origin_path = Path::new(&origin_path);
 
-        for process in processes {
+        for process in &processes {
             create_dir(Path::new(temp.path()).join(String::from("processes-") + process))?;
         }
 
-        let mut rrd = Rrdtool::new(origin_path);
+        let rrd = Rrdtool::new(origin_path);
 
-        let local_path = rrd.get_local_path()?;
+        let mut found_processes = rrd.get_processes_names_from_directory()?;
 
-        assert!(rrd.temp_directory.is_some());
-        assert_ne!(origin_path, local_path);
-        assert!(!local_path.to_str().unwrap().contains("localhost"));
+        found_processes.sort();
+        assert_eq!(3, found_processes.len());
+        assert_eq!("chrome", found_processes[0]);
+        assert_eq!("dolphin", found_processes[1]);
+        assert_eq!("firefox", found_processes[2]);
 
-        let paths = read_dir(local_path)?;
-        assert_eq!(3, paths.count());
+        for process in processes {
+            remove_dir(Path::new(temp.path()).join(String::from("processes-") + process))?;
+        }
 
         Ok(())
     }
