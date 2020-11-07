@@ -30,7 +30,7 @@ args:
     - timespan:
         short: t
         long: timespan
-        about: Descriptive timespan of data range to use, e.g. "last 2 hours"
+        about: "Descriptive timespan of data range to use, e.g.\n- last 2 hours\n- last 5 minutes\n- last 10 days"
         takes_value: true
         conflicts_with:
             - start
