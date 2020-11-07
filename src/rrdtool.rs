@@ -1,7 +1,7 @@
 use anyhow::{Context, Result};
 use std::fs::read_dir;
 use std::path::{Path, PathBuf};
-use std::process::{Command, Output};
+use std::process::Command;
 
 /// Wrapper holding rrdtool command and parameters
 pub struct Rrdtool {
@@ -11,14 +11,24 @@ pub struct Rrdtool {
     input_dir: String,
     /// Main rrdtool command, e.g. rrdtool
     command: String,
-    /// Vector of parameters, passed later to system wide command
-    args: Vec<String>,
+    /// rrdtool subcommand, e.g. graph
+    subcommand: String,
+    /// Output filename
+    output_filename: String,
+    /// Maximum number of processes in one graph
+    max_processes: usize,
+    /// Common arguments in case of multiple charts
+    common_args: Vec<String>,
+    /// Vector of vectors of parameters, passed later to system wide command
+    /// 2D vector is used in case of e.g. too much processes in one chart,
+    /// each dimension keeps arguments for one chart.
+    graph_args: Vec<Vec<String>>,
     /// In case of SSH connection
     username: Option<String>,
     /// In case of SSH connection
     hostname: Option<String>,
     /// In case of SSH connection
-    local_output: Option<String>,
+    remote_filename: Option<String>,
 }
 
 /// Enumb used to choose between local and remote data
@@ -42,72 +52,86 @@ impl Rrdtool {
             target: target,
             input_dir: input_dir,
             command: String::from("rrdtool"),
-            args: Vec::new(),
+            subcommand: String::from(""),
+            max_processes: Rrdtool::COLORS.len(),
+            output_filename: String::from(""),
+            common_args: Vec::new(),
+            graph_args: Vec::new(),
             username: username,
             hostname: hostname,
-            local_output: None,
+            remote_filename: None,
         }
     }
 
     /// Add subcommand to rrdtool, e.g. graph
-    pub fn with_subcommand(&mut self, subcommand: String) -> &mut Self {
-        self.args.push(subcommand);
-        self
+    pub fn with_subcommand(&mut self, subcommand: String) -> Result<&mut Self> {
+        self.subcommand = subcommand;
+        Ok(self)
     }
 
     /// Add output file
-    pub fn with_output_file<'a>(&mut self, output: String) -> &mut Self {
+    pub fn with_output_file<'a>(&mut self, output: String) -> Result<&mut Self> {
         match self.target {
-            Target::Local => self.args.push(output),
+            Target::Local => self.output_filename = output,
             Target::Remote => {
-                self.args.push(String::from("/tmp/cgg-out.png"));
-                self.local_output = Some(output);
+                self.remote_filename = Some(String::from("/tmp/cgg-out.png"));
+                self.output_filename = output;
             }
         }
-        self
+        Ok(self)
+    }
+
+    /// Set maximum number of processes on a graph
+    pub fn with_max_processes(&mut self, max_processes: Option<usize>) -> Result<&mut Self> {
+        match max_processes {
+            Some(max_processes) => self.max_processes = max_processes,
+            None => self.max_processes = Rrdtool::COLORS.len(),
+        }
+        Ok(self)
     }
 
     /// Add width of output file
-    pub fn with_width(&mut self, width: u32) -> &mut Self {
-        self.args.push(String::from("-w"));
-        self.args.push(width.to_string());
-        self
+    pub fn with_width(&mut self, width: u32) -> Result<&mut Self> {
+        self.common_args.push(String::from("-w"));
+        self.common_args.push(width.to_string());
+        Ok(self)
     }
 
     /// Add height of output file
-    pub fn with_height(&mut self, height: u32) -> &mut Self {
-        self.args.push(String::from("-h"));
-        self.args.push(height.to_string());
-        self
+    pub fn with_height(&mut self, height: u32) -> Result<&mut Self> {
+        self.common_args.push(String::from("-h"));
+        self.common_args.push(height.to_string());
+        Ok(self)
     }
 
     /// Add start timestamp
-    pub fn with_start(&mut self, start: u64) -> &mut Self {
-        self.args.push(String::from("--start"));
-        self.args.push(start.to_string());
-        self
+    pub fn with_start(&mut self, start: u64) -> Result<&mut Self> {
+        self.common_args.push(String::from("--start"));
+        self.common_args.push(start.to_string());
+        Ok(self)
     }
 
     /// Add end timestamp
-    pub fn with_end(&mut self, end: u64) -> &mut Self {
-        self.args.push(String::from("--end"));
-        self.args.push(end.to_string());
-        self
+    pub fn with_end(&mut self, end: u64) -> Result<&mut Self> {
+        self.common_args.push(String::from("--end"));
+        self.common_args.push(end.to_string());
+        Ok(self)
     }
 
     /// Add RSS of all processes available in input_dir
-    pub fn with_processes_rss<'a>(&mut self, processes_to_draw: Option<Vec<String>>) -> &mut Self {
+    pub fn with_processes_rss<'a>(
+        &mut self,
+        processes_to_draw: Option<Vec<String>>,
+    ) -> Result<&mut Self> {
         let processes = self.get_processes_names_from_directory();
 
         let processes = match processes {
             Ok(processes) => processes,
-            Err(error) => {
-                eprintln!(
-                    "Failed to read processes names from directory {}, error: {}",
-                    self.input_dir, error
-                );
-                return self;
-            }
+            Err(error) => anyhow::bail!(
+                "Failed to read processes names from directory {}, error: {}",
+                self.input_dir,
+                error
+            ),
         };
 
         let processes = Rrdtool::filter_processes(processes, processes_to_draw).unwrap();
@@ -117,75 +141,176 @@ impl Rrdtool {
             "Too many processes! We are running out of colors to proceed."
         );
 
-        let mut i = 0;
+        let len = processes.len();
+        let loops = math::round::ceil(len as f64 / self.max_processes as f64, 0) as u32;
 
-        for process in processes {
-            self.with_process_rss(
-                PathBuf::from(self.input_dir.as_str()),
-                process,
-                String::from(Rrdtool::COLORS[i]),
-            );
-            i += 1;
+        for i in 0..loops {
+            let mut color = 0;
+
+            let lower = i as usize * self.max_processes;
+            let upper = std::cmp::min((i as usize + 1) * self.max_processes, processes.len());
+
+            for process in &processes[lower..upper] {
+                self.with_process_rss(
+                    PathBuf::from(self.input_dir.as_str()),
+                    String::from(process),
+                    String::from(Rrdtool::COLORS[color]),
+                    i as usize,
+                );
+                color += 1;
+            }
         }
 
-        self
+        Ok(self)
     }
 
     /// Add custom argument to rrdtool
-    pub fn with_custom_argument(&mut self, arg: String) -> &mut Self {
-        self.args.push(arg);
-        self
+    pub fn with_custom_argument(&mut self, arg: String) -> Result<&mut Self> {
+        self.common_args.push(arg);
+        Ok(self)
     }
 
     /// Execute command
-    pub fn exec(&mut self) -> Result<Output> {
+    pub fn exec(&mut self) -> Result<()> {
         print!("Executing {} ", &self.command);
 
-        let output = match self.target {
+        match self.target {
             Target::Local => {
                 println!("locally...");
-                Command::new(&self.command)
-                    .args(&self.args)
-                    .output()
-                    .context(format!(
-                        "Failed to execute rrdtool: {}, args: {:?}",
-                        self.command, self.args
-                    ))?
+
+                self.exec_local().context("Failed in exec_local")
             }
             Target::Remote => {
                 println!("remotely...");
-                self.args.insert(
-                    0,
-                    String::from(self.username.as_ref().unwrap().as_str())
-                        + "@"
-                        + self.hostname.as_ref().unwrap(),
-                );
 
-                self.args.insert(1, String::from(self.command.as_str()));
-
-                let output = Command::new("ssh").args(&self.args).output()?;
-
-                Command::new("scp")
-                    .args(&["/tmp/cgg-out.png", &self.local_output.as_ref().unwrap()])
-                    .output()
-                    .context("Failed to execute SSH")?;
-
-                match output.status.success() {
-                    true => Command::new("scp")
-                        .args(&["/tmp/cgg-out.png", &self.local_output.as_ref().unwrap()])
-                        .output()
-                        .context("Failed to scp result image back to host")?,
-                    false => output,
-                }
+                self.exec_remote().context("Failed in exec_remote")
             }
-        };
+        }
+    }
 
-        match output.status.success() {
-            true => Ok(output),
-            false => {
+    /// Execute rrdtool locally
+    fn exec_local(&self) -> Result<()> {
+        let commands = self.build_rrdtool_args();
+
+        for args in commands {
+            let output = Command::new(&self.command)
+                .args(&args)
+                .output()
+                .context(format!(
+                    "Failed to execute rrdtool: {}, args: {:?}",
+                    self.command, args
+                ))?;
+
+            if output.status.success() == false {
                 Rrdtool::print_process_command_output(output);
 
-                anyhow::bail!("Failed to execute command!");
+                anyhow::bail!(
+                    "Local rrdtool returned some errors! {} {:?}",
+                    self.command,
+                    args
+                )
+            }
+        }
+
+        Ok(())
+    }
+
+    /// Execute rrdtool remotely
+    fn exec_remote(&self) -> Result<()> {
+        let commands = self.build_rrdtool_args();
+
+        let network_address = String::from(self.username.as_ref().unwrap().as_str())
+            + "@"
+            + self.hostname.as_ref().unwrap();
+
+        let mut index = 0 as usize;
+        for mut args in commands {
+            // Insert network address
+            args.insert(0, String::from(network_address.as_str()));
+
+            // Insert command
+            args.insert(1, String::from(self.command.as_str()));
+
+            // Execute rrdtool remotely
+            let output = Command::new("ssh")
+                .args(&args)
+                .output()
+                .context("Failed to execute SSH command")?;
+
+            if output.status.success() == false {
+                Rrdtool::print_process_command_output(output);
+
+                anyhow::bail!("Failed to execute ssh command: ssh {:?}", args)
+            }
+
+            let output_filename = self.get_output_filename(index);
+
+            // scp result back to host
+            let args = &[
+                String::from(&network_address) + ":" + self.remote_filename.as_ref().unwrap(),
+                String::from(output_filename.as_str()),
+            ];
+
+            let output = Command::new("scp")
+                .args(args)
+                .output()
+                .context("Failed to execute SSH")?;
+
+            if output.status.success() == false {
+                Rrdtool::print_process_command_output(output);
+
+                anyhow::bail!("Failed to scp result image back to host: scp {:?}", args)
+            }
+            index += 1;
+        }
+
+        Ok(())
+    }
+
+    /// Build vector of rrdtool arguments based on data in self
+    fn build_rrdtool_args(&self) -> Vec<Vec<String>> {
+        let mut commands = Vec::new();
+
+        let no_of_output_files = self.graph_args.len();
+
+        for i in 0..no_of_output_files {
+            let index = i as usize;
+            commands.push(Vec::new());
+
+            commands[index].push(String::from(self.subcommand.as_str()));
+
+            let output_filename = self.get_output_filename(index);
+
+            match self.target {
+                Target::Local => commands[index].push(String::from(output_filename.as_str())),
+                Target::Remote => {
+                    commands[index].push(String::from(self.remote_filename.as_ref().unwrap()))
+                }
+            }
+
+            for common_arg in &self.common_args {
+                commands[index].push(String::from(common_arg));
+            }
+
+            for graph_arg in &self.graph_args[index] {
+                commands[index].push(String::from(graph_arg));
+            }
+        }
+
+        commands
+    }
+
+    /// Build output filename based on current index and number of expected output files
+    fn get_output_filename(&self, index: usize) -> String {
+        match self.graph_args.len() {
+            1 => String::from(self.output_filename.as_str()),
+            _ => {
+                let mut output_filename = String::from(self.output_filename.as_str());
+                let appendix = String::from("_") + (index + 1).to_string().as_str();
+
+                output_filename.insert_str(output_filename.rfind(".").unwrap(), appendix.as_str());
+
+                output_filename
             }
         }
     }
@@ -196,6 +321,7 @@ impl Rrdtool {
         input_dir: PathBuf,
         process: String,
         color: String,
+        graph_args_no: usize,
     ) -> &Self {
         let path = input_dir
             .join(String::from("processes-") + &process)
@@ -203,15 +329,27 @@ impl Rrdtool {
 
         let process_first_word = process.split_whitespace().next().unwrap();
 
-        self.args.push(
+        if self.graph_args.len() <= graph_args_no {
+            self.graph_args.push(Vec::new())
+        }
+
+        self.graph_args[graph_args_no].push(
             String::from("DEF:")
                 + process_first_word
-                + "=\""
+                + "="
+                + match self.target {
+                    Target::Local => "",
+                    Target::Remote => "\"",
+                }
                 + path.as_os_str().to_str().unwrap()
-                + "\":value:AVERAGE",
+                + match self.target {
+                    Target::Local => "",
+                    Target::Remote => "\"",
+                }
+                + ":value:AVERAGE",
         );
 
-        self.args
+        self.graph_args[graph_args_no]
             .push(String::from("LINE3:") + process_first_word + &color + ":\"" + &process + "\"");
 
         self
@@ -284,13 +422,14 @@ impl Rrdtool {
 
     /// Get processes names from remote directory via SSH and ls commands
     fn get_processes_names_from_remote_directory<'a>(&self) -> Result<Vec<String>> {
+        let network_address =
+            String::from(self.username.as_ref().unwrap()) + "@" + &self.hostname.as_ref().unwrap();
+
         let output = Command::new("ssh")
             .args(&[
-                String::from(self.username.as_ref().unwrap())
-                    + "@"
-                    + &self.hostname.as_ref().unwrap(),
-                String::from("ls"),
-                String::from(self.input_dir.as_str()),
+                &network_address,
+                &String::from("ls"),
+                &String::from(self.input_dir.as_str()),
             ])
             .output()
             .context("Failed to execute SSH")?;
@@ -299,7 +438,8 @@ impl Rrdtool {
             Rrdtool::print_process_command_output(output);
 
             anyhow::bail!(
-                "Failed to list remote directories in {}!",
+                "Failed to list remote directories in {}:{}!",
+                network_address,
                 self.input_dir.as_str()
             );
         }
@@ -351,19 +491,23 @@ pub mod tests {
     pub fn rrdtool_builder() -> Result<()> {
         let mut rrd = Rrdtool::new(Path::new("/some/local/"));
 
-        rrd.with_output_file(String::from("out.png"))
-            .with_subcommand(String::from("graph"))
-            .with_start(123456)
-            .with_end(1234567);
+        rrd.with_output_file(String::from("out.png"))?
+            .with_subcommand(String::from("graph"))?
+            .with_start(123456)?
+            .with_end(1234567)?;
 
         assert_eq!("rrdtool", rrd.command);
-        assert_eq!(6, rrd.args.len());
+        assert_eq!("out.png", rrd.output_filename);
+        assert_eq!("graph", rrd.subcommand);
+        assert_eq!(4, rrd.common_args.len());
+        assert_eq!(0, rrd.graph_args.len());
         Ok(())
     }
 
     #[test]
     pub fn rrdtool_simple_exec() -> Result<()> {
         Rrdtool::new(Path::new("/some/local"))
+            .with_subcommand(String::from("graph"))?
             .exec()
             .context("Failed to exec rrdtool")?;
         Ok(())
@@ -377,14 +521,15 @@ pub mod tests {
             PathBuf::from("/some/path"),
             String::from("firefox"),
             String::from("#00ff00"),
+            0,
         );
 
-        assert_eq!(2, rrd.args.len());
+        assert_eq!(2, rrd.common_args.len() + rrd.graph_args[0].len());
         assert_eq!(
-            "DEF:firefox=\"/some/path/processes-firefox/ps_rss.rrd\":value:AVERAGE",
-            rrd.args[0]
+            "DEF:firefox=/some/path/processes-firefox/ps_rss.rrd:value:AVERAGE",
+            rrd.graph_args[0][0]
         );
-        assert_eq!("LINE3:firefox#00ff00:\"firefox\"", rrd.args[1]);
+        assert_eq!("LINE3:firefox#00ff00:\"firefox\"", rrd.graph_args[0][1]);
 
         Ok(())
     }
@@ -397,36 +542,67 @@ pub mod tests {
             PathBuf::from("/some/path"),
             String::from("rust language server"),
             String::from("#00ff00"),
+            0,
         );
 
-        assert_eq!(2, rrd.args.len());
+        assert_eq!(2, rrd.common_args.len() + rrd.graph_args[0].len());
         assert_eq!(
-            "DEF:rust=\"/some/path/processes-rust language server/ps_rss.rrd\":value:AVERAGE",
-            rrd.args[0]
+            "DEF:rust=/some/path/processes-rust language server/ps_rss.rrd:value:AVERAGE",
+            rrd.graph_args[0][0]
         );
-        assert_eq!("LINE3:rust#00ff00:\"rust language server\"", rrd.args[1]);
+        assert_eq!(
+            "LINE3:rust#00ff00:\"rust language server\"",
+            rrd.graph_args[0][1]
+        );
+
+        Ok(())
+    }
+
+    #[test]
+    pub fn rrdtool_with_processes_rss_more_than_max_processes() -> Result<()> {
+        let paths = vec![
+            Path::new("/tmp/processes-firefox"),
+            Path::new("/tmp/processes-chrome"),
+            Path::new("/tmp/processes-dolphin"),
+            Path::new("/tmp/processes-rust language server"),
+            Path::new("/tmp/processes-vscode"),
+        ];
+
+        for path in &paths {
+            if !path.exists() {
+                create_dir(path)?;
+            }
+        }
+
+        let mut rrd = Rrdtool::new(Path::new("/tmp"));
+        rrd.with_max_processes(Some(2))?;
+
+        rrd.with_processes_rss(None)?;
+
+        for path in paths {
+            if path.exists() {
+                remove_dir(path)?;
+            }
+        }
+
+        assert_eq!(3, rrd.graph_args.len());
 
         Ok(())
     }
 
     #[test]
     pub fn rrdtool_get_processes_names_from_directory_local() -> Result<()> {
-        let firefox = Path::new("/tmp/processes-firefox");
-        let chrome = Path::new("/tmp/processes-chrome");
-        let dolphin = Path::new("/tmp/processes-dolphin");
-        let rust = Path::new("/tmp/processes-rust language server");
+        let paths = vec![
+            Path::new("/tmp/processes-firefox"),
+            Path::new("/tmp/processes-chrome"),
+            Path::new("/tmp/processes-dolphin"),
+            Path::new("/tmp/processes-rust language server"),
+        ];
 
-        if !firefox.exists() {
-            create_dir(firefox)?;
-        }
-        if !chrome.exists() {
-            create_dir(chrome)?;
-        }
-        if !dolphin.exists() {
-            create_dir(dolphin)?;
-        }
-        if !rust.exists() {
-            create_dir(rust)?;
+        for path in &paths {
+            if !path.exists() {
+                create_dir(path)?;
+            }
         }
 
         let rrd = Rrdtool::new(Path::new("/tmp"));
@@ -440,10 +616,11 @@ pub mod tests {
         assert_eq!("firefox", processes[2]);
         assert_eq!("rust language server", processes[3]);
 
-        remove_dir(firefox)?;
-        remove_dir(chrome)?;
-        remove_dir(dolphin)?;
-        remove_dir(rust)?;
+        for path in &paths {
+            if path.exists() {
+                remove_dir(path)?;
+            }
+        }
 
         Ok(())
     }
@@ -481,18 +658,18 @@ pub mod tests {
     pub fn rrdtool_with_output_file_local() -> Result<()> {
         let path = Path::new("/some/local/path");
         let mut rrd = Rrdtool::new(path);
-        rrd.with_output_file(String::from("out.png"));
+        rrd.with_output_file(String::from("out.png"))?;
 
-        assert_eq!("out.png", rrd.args[0]);
+        assert_eq!("out.png", rrd.output_filename);
         Ok(())
     }
 
     #[test]
     pub fn rrdtool_with_output_file_remote() -> Result<()> {
         let mut rrd = Rrdtool::new(Path::new("marcin@10.0.0.1:/some/remote/path"));
-        rrd.with_output_file(String::from("out.png"));
+        rrd.with_output_file(String::from("out.png"))?;
 
-        assert_eq!("/tmp/cgg-out.png", rrd.args[0]);
+        assert_eq!("/tmp/cgg-out.png", rrd.remote_filename.unwrap());
         Ok(())
     }
 
@@ -570,6 +747,36 @@ pub mod tests {
             vec![String::from("dolphin"), String::from("firefox")],
             filtered
         );
+
+        Ok(())
+    }
+
+    #[test]
+    pub fn rrdtool_get_output_filename_single_file() -> Result<()> {
+        let mut rrd = Rrdtool::new(Path::new("/some/path"));
+
+        rrd.with_output_file(String::from("some_file.png"))?;
+        rrd.graph_args.push(Vec::new());
+
+        let filename = rrd.get_output_filename(0);
+
+        assert_eq!("some_file.png", filename);
+
+        Ok(())
+    }
+
+    #[test]
+    pub fn rrdtool_get_output_filename_multiple_files() -> Result<()> {
+        let mut rrd = Rrdtool::new(Path::new("/some/path"));
+
+        rrd.with_output_file(String::from("some other file.png"))?;
+        rrd.graph_args.push(Vec::new());
+        rrd.graph_args.push(Vec::new());
+        rrd.graph_args.push(Vec::new());
+
+        assert_eq!("some other file_1.png", rrd.get_output_filename(0));
+        assert_eq!("some other file_2.png", rrd.get_output_filename(1));
+        assert_eq!("some other file_3.png", rrd.get_output_filename(2));
 
         Ok(())
     }

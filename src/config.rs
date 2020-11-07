@@ -19,6 +19,8 @@ pub struct Config<'a> {
     pub end: u64,
     /// List of processes to generate graph for
     pub processes: Option<Vec<String>>,
+    /// Max number of processes on one graph
+    pub max_processes: Option<usize>,
 }
 
 impl<'a> Config<'a> {
@@ -74,6 +76,15 @@ impl<'a> Config<'a> {
             None => None,
         };
 
+        let max_processes = match cli.value_of("max_processes") {
+            Some(max_processes) => Some(
+                max_processes
+                    .parse::<usize>()
+                    .context("Failed to parse max_processes argument")?,
+            ),
+            None => None,
+        };
+
         Ok(Config {
             input_dir: Path::new(input),
             output_filename: output,
@@ -82,6 +93,7 @@ impl<'a> Config<'a> {
             start: start,
             end: end,
             processes: processes,
+            max_processes: max_processes,
         })
     }
 

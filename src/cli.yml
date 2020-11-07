@@ -55,4 +55,9 @@ args:
         long: processes
         about: List of processes to generate graph for, separated by ","
         takes_value: true
+    - max_processes:
+        long: max_processes
+        short: m
+        about: Set maximum number of processes on one chart (up to 20). If more processes are watched by collectd, separate files will be created with appendices, e.g. processes_1.png, processes_2.png
+        takes_value: true
 

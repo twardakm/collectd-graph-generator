@@ -24,8 +24,7 @@ fn main() {
     std::process::exit(match cgg::run(config) {
         Ok(()) => 0,
         Err(err) => {
-            eprintln!("Error: {:?}\n", err);
-            help();
+            eprintln!("Error: {:?}", err);
             1
         }
     })
