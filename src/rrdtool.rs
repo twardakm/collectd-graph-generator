@@ -1,4 +1,5 @@
 use anyhow::{Context, Result};
+use log::{debug, error, info, trace};
 use std::fs::read_dir;
 use std::path::{Path, PathBuf};
 use std::process::Command;
@@ -134,7 +135,15 @@ impl Rrdtool {
             ),
         };
 
+        if processes.len() == 0 {
+            anyhow::bail!("Couldn't find any processes!");
+        }
+
+        trace!("Found processes: {:?}", processes);
+
         let processes = Rrdtool::filter_processes(processes, processes_to_draw).unwrap();
+
+        trace!("Processes after filtering: {:?}", processes);
 
         assert!(
             processes.len() < Rrdtool::COLORS.len(),
@@ -143,6 +152,8 @@ impl Rrdtool {
 
         let len = processes.len();
         let loops = math::round::ceil(len as f64 / self.max_processes as f64, 0) as u32;
+
+        debug!("{} processes should be saved on {} graphs.", len, loops);
 
         for i in 0..loops {
             let mut color = 0;
@@ -172,16 +183,14 @@ impl Rrdtool {
 
     /// Execute command
     pub fn exec(&mut self) -> Result<()> {
-        print!("Executing {} ", &self.command);
-
         match self.target {
             Target::Local => {
-                println!("locally...");
+                info!("Executing {} locally...", self.command);
 
                 self.exec_local().context("Failed in exec_local")
             }
             Target::Remote => {
-                println!("remotely...");
+                info!("Executing {} remotely...", self.command);
 
                 self.exec_remote().context("Failed in exec_remote")
             }
@@ -193,6 +202,8 @@ impl Rrdtool {
         let commands = self.build_rrdtool_args();
 
         for args in commands {
+            trace!("Executing locally: {} {:?}", self.command, args);
+
             let output = Command::new(&self.command)
                 .args(&args)
                 .output()
@@ -210,6 +221,8 @@ impl Rrdtool {
                     args
                 )
             }
+
+            info!("Successfully saved {}", args[1]);
         }
 
         Ok(())
@@ -231,6 +244,8 @@ impl Rrdtool {
             // Insert command
             args.insert(1, String::from(self.command.as_str()));
 
+            trace!("Executing remotely: ssh {:?}", args);
+
             // Execute rrdtool remotely
             let output = Command::new("ssh")
                 .args(&args)
@@ -251,6 +266,8 @@ impl Rrdtool {
                 String::from(output_filename.as_str()),
             ];
 
+            trace!("Executing remotely: scp {:?}", args);
+
             let output = Command::new("scp")
                 .args(args)
                 .output()
@@ -261,6 +278,9 @@ impl Rrdtool {
 
                 anyhow::bail!("Failed to scp result image back to host: scp {:?}", args)
             }
+
+            info!("Successfully saved {}", output_filename);
+
             index += 1;
         }
 
@@ -273,6 +293,8 @@ impl Rrdtool {
 
         let no_of_output_files = self.graph_args.len();
 
+        debug!("Building arguments for {} files.", no_of_output_files);
+
         for i in 0..no_of_output_files {
             let index = i as usize;
             commands.push(Vec::new());
@@ -282,9 +304,16 @@ impl Rrdtool {
             let output_filename = self.get_output_filename(index);
 
             match self.target {
-                Target::Local => commands[index].push(String::from(output_filename.as_str())),
+                Target::Local => {
+                    commands[index].push(String::from(output_filename.as_str()));
+                    debug!("Building arguments for local {} file.", output_filename);
+                }
                 Target::Remote => {
-                    commands[index].push(String::from(self.remote_filename.as_ref().unwrap()))
+                    commands[index].push(String::from(self.remote_filename.as_ref().unwrap()));
+                    debug!(
+                        "Building arguments for remote {} file.",
+                        self.remote_filename.as_ref().unwrap()
+                    );
                 }
             }
 
@@ -295,6 +324,12 @@ impl Rrdtool {
             for graph_arg in &self.graph_args[index] {
                 commands[index].push(String::from(graph_arg));
             }
+
+            trace!(
+                "Built arguments for {} filename: {:?}",
+                output_filename,
+                commands
+            );
         }
 
         commands
@@ -310,6 +345,8 @@ impl Rrdtool {
 
                 output_filename.insert_str(output_filename.rfind(".").unwrap(), appendix.as_str());
 
+                trace!("Returning output filename: {}", output_filename);
+
                 output_filename
             }
         }
@@ -323,6 +360,8 @@ impl Rrdtool {
         color: String,
         graph_args_no: usize,
     ) -> &Self {
+        trace!("Processing {}", process);
+
         let path = input_dir
             .join(String::from("processes-") + &process)
             .join("ps_rss.rrd");
@@ -370,10 +409,18 @@ impl Rrdtool {
                 let captures = re.captures(input_dir.to_str().unwrap()).unwrap();
                 let username = captures[1].to_string();
                 let hostname = captures[2].to_string();
+                let remote_path = captures.get(3).unwrap().as_str();
+
+                trace!(
+                    "Parsed remote path, username: {}, hostname: {}, path: {}",
+                    username,
+                    hostname,
+                    remote_path
+                );
 
                 Ok((
                     target,
-                    String::from(captures.get(3).unwrap().as_str()),
+                    String::from(remote_path),
                     Some(username),
                     Some(hostname),
                 ))
@@ -452,6 +499,8 @@ impl Rrdtool {
             .map(|s| String::from(s))
             .collect::<Vec<String>>();
 
+        trace!("Listed processes from remote directory: {:?}", processes);
+
         Ok(processes)
     }
 
@@ -473,9 +522,9 @@ impl Rrdtool {
     }
 
     fn print_process_command_output(output: std::process::Output) {
-        eprintln!("status: {}", output.status);
-        eprint!("stdout: {}", String::from_utf8_lossy(&output.stdout));
-        eprintln!("stderr: {}", String::from_utf8_lossy(&output.stderr));
+        error!("status: {}", output.status);
+        error!("stdout: {}", String::from_utf8_lossy(&output.stdout));
+        error!("stderr: {}", String::from_utf8_lossy(&output.stderr));
     }
 }
 

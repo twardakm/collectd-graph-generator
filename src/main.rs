@@ -1,5 +1,6 @@
 use cgg::config::Config;
 use clap::{load_yaml, App};
+use log::error;
 
 const EXAMPLES: &'static str = &"EXAMPLES:
     ./cgg -i /var/lib/collectd/marcin-manjaro/ -t \"last 4 hours\"\n
@@ -9,13 +10,15 @@ const EXAMPLES: &'static str = &"EXAMPLES:
 -t \"last 1 hour\" --processes \"firefox,spotify,visual studio code\"";
 
 fn main() {
+    env_logger::init();
+
     let yaml = load_yaml!("cli.yml");
     let cli = App::from(yaml).after_help(EXAMPLES).get_matches();
 
     let config = match Config::new(&cli) {
         Ok(config) => config,
         Err(err) => {
-            eprintln!("Error: {:?}\n", err);
+            error!("Error: {:?}\n", err);
             help();
             std::process::exit(1);
         }
@@ -24,7 +27,7 @@ fn main() {
     std::process::exit(match cgg::run(config) {
         Ok(()) => 0,
         Err(err) => {
-            eprintln!("Error: {:?}", err);
+            error!("Error: {:?}", err);
             1
         }
     })
