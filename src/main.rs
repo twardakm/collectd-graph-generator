@@ -10,7 +10,9 @@ const EXAMPLES: &'static str = &"EXAMPLES:
 -t \"last 1 hour\" --processes \"firefox,spotify,visual studio code\"";
 
 fn main() {
-    env_logger::init();
+    env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("info"))
+        .format_timestamp(None)
+        .init();
 
     let yaml = load_yaml!("cli.yml");
     let cli = App::from(yaml).after_help(EXAMPLES).get_matches();
