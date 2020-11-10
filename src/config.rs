@@ -1,3 +1,4 @@
+use super::{processes::processes, rrdtool};
 use anyhow::{anyhow, Context};
 use std::path::Path;
 use std::str::FromStr;
@@ -5,6 +6,9 @@ use std::time::SystemTime;
 
 /// Struct with all available options
 pub struct Config<'a> {
+    /// Common settings
+    /// ---------------
+    ///
     /// Path to directory with collectd results
     pub input_dir: &'a Path,
     /// Output filename
@@ -17,10 +21,17 @@ pub struct Config<'a> {
     pub start: u64,
     /// End timestamp
     pub end: u64,
-    /// List of processes to generate graph for
-    pub processes: Option<Vec<String>>,
-    /// Max number of processes on one graph
-    pub max_processes: Option<usize>,
+    /// ---------------
+    /// Plugins
+    /// ---------------
+    pub plugins_config: PluginsConfig,
+}
+
+pub struct PluginsConfig {
+    /// Vector of enums to choose which plugins should be executed
+    pub plugins: Vec<rrdtool::Plugins>,
+    /// Processes plugin
+    pub processes: Option<processes::ProcessesData>,
 }
 
 impl<'a> Config<'a> {
@@ -68,7 +79,25 @@ impl<'a> Config<'a> {
             ),
         };
 
-        let processes = match cli.value_of("processes") {
+        let plugins = match cli.value_of("plugins") {
+            Some(plugins) => {
+                let mut vec = Vec::new();
+
+                for plugin in plugins.split(",").collect::<Vec<&str>>() {
+                    let plugin = match rrdtool::Plugins::from_str(plugin) {
+                        Ok(plugin) => plugin,
+                        Err(_) => anyhow::bail!("Failed to parse plugin: {:?}", plugins),
+                    };
+
+                    vec.push(plugin);
+                }
+
+                vec
+            }
+            None => unreachable!(),
+        };
+
+        let processes_to_draw = match cli.value_of("processes") {
             Some(processes) => Some(
                 Config::parse_processes(String::from(processes))
                     .context(format!("Cannot parse processes {}", processes))?,
@@ -82,7 +111,20 @@ impl<'a> Config<'a> {
                     .parse::<usize>()
                     .context("Failed to parse max_processes argument")?,
             ),
-            None => None,
+            None => Some(rrdtool::Rrdtool::COLORS.len()),
+        };
+
+        let processes = match plugins.contains(&rrdtool::Plugins::Processes) {
+            true => Some(processes::ProcessesData::new(
+                max_processes.unwrap(),
+                processes_to_draw,
+            )),
+            false => None,
+        };
+
+        let plugins_config = PluginsConfig {
+            plugins: plugins,
+            processes: processes,
         };
 
         Ok(Config {
@@ -92,8 +134,7 @@ impl<'a> Config<'a> {
             height: height,
             start: start,
             end: end,
-            processes: processes,
-            max_processes: max_processes,
+            plugins_config: plugins_config,
         })
     }
 

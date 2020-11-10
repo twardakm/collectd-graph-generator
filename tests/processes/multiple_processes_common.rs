@@ -3,7 +3,9 @@ use log::debug;
 use std::path::Path;
 use tempfile::TempDir;
 
-use cgg::rrdtool::Rrdtool;
+use cgg::config::PluginsConfig;
+use cgg::processes::processes::ProcessesData;
+use cgg::rrdtool::{Plugins, Rrdtool};
 
 pub fn multiple_processes<'a>(input_dir: &'a Path) -> Result<()> {
     let _ = env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("error"))
@@ -18,6 +20,11 @@ pub fn multiple_processes<'a>(input_dir: &'a Path) -> Result<()> {
 
     let end = 1604957225;
     let start = end - 3600;
+
+    let plugins_config = PluginsConfig {
+        plugins: vec![Plugins::Processes],
+        processes: Some(ProcessesData::new(Rrdtool::COLORS.len(), None)),
+    };
 
     debug!(
         "TEST: Calling rrdtool with input dir: {}, output file: {}, width: {}, height: {}, start: {}, end: {}",
@@ -37,8 +44,8 @@ pub fn multiple_processes<'a>(input_dir: &'a Path) -> Result<()> {
         .context("Failed with_width")?
         .with_height(height)
         .context("Failed with_height")?
-        .with_processes_rss(None)
-        .context("Failed with_processes_rss")?
+        .with_plugins(plugins_config)
+        .context("Failed to execute plugin")?
         .exec()
         .context("Failed to execute rrdtool")?;
 
@@ -63,6 +70,11 @@ pub fn multiple_processes_multiple_files<'a>(input_dir: &'a Path) -> Result<()> 
     let end = 1604957225;
     let start = end - 3600;
 
+    let plugins_config = PluginsConfig {
+        plugins: vec![Plugins::Processes],
+        processes: Some(ProcessesData::new(3, None)),
+    };
+
     debug!(
         "TEST: Calling rrdtool with input dir: {}, output file: {}, start: {}, end: {}",
         input_dir.display(),
@@ -84,10 +96,8 @@ pub fn multiple_processes_multiple_files<'a>(input_dir: &'a Path) -> Result<()> 
         .context("Failed with_width")?
         .with_height(768)
         .context("Failed with_height")?
-        .with_max_processes(Some(3))
-        .context("Failed with_max_processes")?
-        .with_processes_rss(None)
-        .context("Failed with_processes_rss")?
+        .with_plugins(plugins_config)
+        .context("Failed to execute plugins")?
         .exec()
         .context("Failed to execute rrdtool")?;
 
@@ -150,6 +160,19 @@ pub fn multiple_processes_local_filtered_names<'a>(input_dir: &'a Path) -> Resul
     let end = 1604957225;
     let start = end - 3600;
 
+    let plugins_config = PluginsConfig {
+        plugins: vec![Plugins::Processes],
+        processes: Some(ProcessesData::new(
+            3,
+            Some(vec![
+                String::from("baloo_file"),
+                String::from("kaccess"),
+                String::from("synology note"),
+                String::from("some non existing process"),
+            ]),
+        )),
+    };
+
     debug!(
         "TEST: Calling rrdtool with input dir: {}, output file: {}, width: {}, height: {}, start: {}, end: {}",
         input_dir.display(), output_file.to_str().unwrap(), width, height, start, end
@@ -168,15 +191,8 @@ pub fn multiple_processes_local_filtered_names<'a>(input_dir: &'a Path) -> Resul
         .context("Failed with_width")?
         .with_height(height)
         .context("Failed with_height")?
-        .with_max_processes(Some(3))
-        .context("Failed with_max_processes")?
-        .with_processes_rss(Some(vec![
-            String::from("baloo_file"),
-            String::from("kaccess"),
-            String::from("synology note"),
-            String::from("some non existing process"),
-        ]))
-        .context("Failed with_processes_rss")?
+        .with_plugins(plugins_config)
+        .context("Failed to execute plugins")?
         .exec()
         .context("Failed to execute rrdtool")?;
 

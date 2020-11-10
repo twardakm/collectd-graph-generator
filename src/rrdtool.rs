@@ -1,46 +1,72 @@
+use super::config;
+use super::memory::memory;
+
 use anyhow::{Context, Result};
 use log::{debug, error, info, trace};
-use std::fs::read_dir;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use std::process::Command;
+use std::str::FromStr;
 
 /// Wrapper holding rrdtool command and parameters
 pub struct Rrdtool {
     /// Local or Remote
-    target: Target,
+    pub target: Target,
     /// Path to collectd data
-    input_dir: String,
+    pub input_dir: String,
     /// Main rrdtool command, e.g. rrdtool
     command: String,
     /// rrdtool subcommand, e.g. graph
     subcommand: String,
     /// Output filename
     output_filename: String,
-    /// Maximum number of processes in one graph
-    max_processes: usize,
     /// Common arguments in case of multiple charts
-    common_args: Vec<String>,
+    pub common_args: Vec<String>,
     /// Vector of vectors of parameters, passed later to system wide command
     /// 2D vector is used in case of e.g. too much processes in one chart,
     /// each dimension keeps arguments for one chart.
-    graph_args: Vec<Vec<String>>,
+    pub graph_args: Vec<Vec<String>>,
     /// In case of SSH connection
-    username: Option<String>,
+    pub username: Option<String>,
     /// In case of SSH connection
-    hostname: Option<String>,
+    pub hostname: Option<String>,
     /// In case of SSH connection
     remote_filename: Option<String>,
 }
 
-/// Enumb used to choose between local and remote data
+/// Trait for different plugins
+pub trait Plugin<T> {
+    /// Entry point for all plugins
+    fn enter_plugin(&mut self, data: T) -> Result<&mut Self>;
+}
+
+/// Enum used to choose between local and remote data
 #[derive(Copy, Clone, PartialEq)]
 pub enum Target {
     Local,
     Remote,
 }
 
+/// Enum for choosing collectd plugins
+#[derive(Copy, Clone, PartialEq)]
+pub enum Plugins {
+    Processes,
+    Memory,
+}
+
+impl FromStr for Plugins {
+    type Err = ();
+
+    fn from_str(input: &str) -> Result<Plugins, Self::Err> {
+        match input {
+            "processes" => Ok(Plugins::Processes),
+            "memory" => Ok(Plugins::Memory),
+            _ => Err(()),
+        }
+    }
+}
+
 impl Rrdtool {
-    const COLORS: &'static [&'static str] = &[
+    pub const COLORS: &'static [&'static str] = &[
         "#e6194b", "#3cb44b", "#ffe119", "#4363d8", "#f58231", "#911eb4", "#46f0f0", "#f032e6",
         "#bcf60c", "#fabebe", "#008080", "#e6beff", "#9a6324", "#800000", "#aaffc3", "#808000",
         "#ffd8b1", "#000075", "#808080", "#000000",
@@ -54,7 +80,6 @@ impl Rrdtool {
             input_dir: input_dir,
             command: String::from("rrdtool"),
             subcommand: String::from(""),
-            max_processes: Rrdtool::COLORS.len(),
             output_filename: String::from(""),
             common_args: Vec::new(),
             graph_args: Vec::new(),
@@ -78,15 +103,6 @@ impl Rrdtool {
                 self.remote_filename = Some(String::from("/tmp/cgg-out.png"));
                 self.output_filename = output;
             }
-        }
-        Ok(self)
-    }
-
-    /// Set maximum number of processes on a graph
-    pub fn with_max_processes(&mut self, max_processes: Option<usize>) -> Result<&mut Self> {
-        match max_processes {
-            Some(max_processes) => self.max_processes = max_processes,
-            None => self.max_processes = Rrdtool::COLORS.len(),
         }
         Ok(self)
     }
@@ -119,57 +135,19 @@ impl Rrdtool {
         Ok(self)
     }
 
-    /// Add RSS of all processes available in input_dir
-    pub fn with_processes_rss<'a>(
-        &mut self,
-        processes_to_draw: Option<Vec<String>>,
-    ) -> Result<&mut Self> {
-        let processes = self.get_processes_names_from_directory();
-
-        let processes = match processes {
-            Ok(processes) => processes,
-            Err(error) => anyhow::bail!(
-                "Failed to read processes names from directory {}, error: {}",
-                self.input_dir,
-                error
-            ),
-        };
-
-        if processes.len() == 0 {
-            anyhow::bail!("Couldn't find any processes!");
-        }
-
-        trace!("Found processes: {:?}", processes);
-
-        let processes = Rrdtool::filter_processes(processes, processes_to_draw).unwrap();
-
-        trace!("Processes after filtering: {:?}", processes);
-
-        assert!(
-            processes.len() < Rrdtool::COLORS.len(),
-            "Too many processes! We are running out of colors to proceed."
-        );
-
-        let len = processes.len();
-        let loops = math::round::ceil(len as f64 / self.max_processes as f64, 0) as u32;
-
-        debug!("{} processes should be saved on {} graphs.", len, loops);
-
-        for i in 0..loops {
-            let mut color = 0;
-
-            let lower = i as usize * self.max_processes;
-            let upper = std::cmp::min((i as usize + 1) * self.max_processes, processes.len());
-
-            for process in &processes[lower..upper] {
-                self.with_process_rss(
-                    PathBuf::from(self.input_dir.as_str()),
-                    String::from(process),
-                    String::from(Rrdtool::COLORS[color]),
-                    i as usize,
-                );
-                color += 1;
-            }
+    /// Run all plugins
+    pub fn with_plugins(&mut self, plugins_config: config::PluginsConfig) -> Result<&mut Self> {
+        for plugin in plugins_config.plugins {
+            match plugin {
+                Plugins::Processes => {
+                    self.enter_plugin(plugins_config.processes.as_ref().unwrap())
+                        .context("Failed \"processes\" plugin")?;
+                }
+                Plugins::Memory => {
+                    self.enter_plugin(memory::MemoryData::new(String::from("dummy")))
+                        .context("Failed \"memory\" plugin")?;
+                }
+            };
         }
 
         Ok(self)
@@ -352,48 +330,6 @@ impl Rrdtool {
         }
     }
 
-    /// Add process to the graph
-    fn with_process_rss<'a>(
-        &mut self,
-        input_dir: PathBuf,
-        process: String,
-        color: String,
-        graph_args_no: usize,
-    ) -> &Self {
-        trace!("Processing {}", process);
-
-        let path = input_dir
-            .join(String::from("processes-") + &process)
-            .join("ps_rss.rrd");
-
-        let process_first_word = process.split_whitespace().next().unwrap();
-
-        if self.graph_args.len() <= graph_args_no {
-            self.graph_args.push(Vec::new())
-        }
-
-        self.graph_args[graph_args_no].push(
-            String::from("DEF:")
-                + process_first_word
-                + "="
-                + match self.target {
-                    Target::Local => "",
-                    Target::Remote => "\"",
-                }
-                + path.as_os_str().to_str().unwrap()
-                + match self.target {
-                    Target::Local => "",
-                    Target::Remote => "\"",
-                }
-                + ":value:AVERAGE",
-        );
-
-        self.graph_args[graph_args_no]
-            .push(String::from("LINE3:") + process_first_word + &color + ":\"" + &process + "\"");
-
-        self
-    }
-
     /// Parse input path to get target type, path, username and hostname
     fn parse_input_path<'a>(
         input_dir: &'a Path,
@@ -439,89 +375,8 @@ impl Rrdtool {
         }
     }
 
-    /// Parse collectd results directory to get names of analysed processes
-    fn get_processes_names_from_directory<'a>(&self) -> Result<Vec<String>> {
-        match self.target {
-            Target::Local => self.get_processes_names_from_local_directory(),
-            Target::Remote => self.get_processes_names_from_remote_directory(),
-        }
-    }
-
-    /// Get processes from local source
-    fn get_processes_names_from_local_directory<'a>(&self) -> Result<Vec<String>> {
-        let paths = read_dir(&self.input_dir)
-            .context(format!("Failed to read directory: {}", self.input_dir))?;
-
-        let processes = paths
-            .filter_map(|path| {
-                path.ok().and_then(|path| {
-                    path.path().file_name().and_then(|name| {
-                        name.to_str()
-                            .and_then(|s| s.strip_prefix("processes-"))
-                            .map(|s| String::from(s))
-                    })
-                })
-            })
-            .collect::<Vec<String>>();
-
-        Ok(processes)
-    }
-
-    /// Get processes names from remote directory via SSH and ls commands
-    fn get_processes_names_from_remote_directory<'a>(&self) -> Result<Vec<String>> {
-        let network_address =
-            String::from(self.username.as_ref().unwrap()) + "@" + &self.hostname.as_ref().unwrap();
-
-        let output = Command::new("ssh")
-            .args(&[
-                &network_address,
-                &String::from("ls"),
-                &String::from(self.input_dir.as_str()),
-            ])
-            .output()
-            .context("Failed to execute SSH")?;
-
-        if !output.status.success() {
-            Rrdtool::print_process_command_output(output);
-
-            anyhow::bail!(
-                "Failed to list remote directories in {}:{}!",
-                network_address,
-                self.input_dir.as_str()
-            );
-        }
-
-        let output = String::from_utf8_lossy(&output.stdout);
-
-        let processes = output
-            .lines()
-            .filter_map(|path| path.strip_prefix("processes-"))
-            .map(|s| String::from(s))
-            .collect::<Vec<String>>();
-
-        trace!("Listed processes from remote directory: {:?}", processes);
-
-        Ok(processes)
-    }
-
-    /// If processes_to_draw is Some, returns only the processes in both vectors
-    fn filter_processes(
-        processes: Vec<String>,
-        processes_to_draw: Option<Vec<String>>,
-    ) -> Result<Vec<String>> {
-        match processes_to_draw {
-            None => Ok(processes),
-            Some(processes_to_draw) => Ok(processes
-                .into_iter()
-                .filter_map(|process| match processes_to_draw.contains(&process) {
-                    true => Some(process),
-                    false => None,
-                })
-                .collect::<Vec<String>>()),
-        }
-    }
-
-    fn print_process_command_output(output: std::process::Output) {
+    /// Print output of system command
+    pub fn print_process_command_output(output: std::process::Output) {
         error!("status: {}", output.status);
         error!("stdout: {}", String::from_utf8_lossy(&output.stdout));
         error!("stderr: {}", String::from_utf8_lossy(&output.stderr));
@@ -532,9 +387,7 @@ impl Rrdtool {
 pub mod tests {
     use super::*;
     use anyhow::Result;
-    use std::fs::{create_dir, remove_dir};
     use std::path::Path;
-    use tempfile::TempDir;
 
     #[test]
     pub fn rrdtool_builder() -> Result<()> {
@@ -559,147 +412,6 @@ pub mod tests {
             .with_subcommand(String::from("graph"))?
             .exec()
             .context("Failed to exec rrdtool")?;
-        Ok(())
-    }
-
-    #[test]
-    pub fn rrdtool_with_process_rss() -> Result<()> {
-        let mut rrd = Rrdtool::new(Path::new("/some/path"));
-
-        rrd.with_process_rss(
-            PathBuf::from("/some/path"),
-            String::from("firefox"),
-            String::from("#00ff00"),
-            0,
-        );
-
-        assert_eq!(2, rrd.common_args.len() + rrd.graph_args[0].len());
-        assert_eq!(
-            "DEF:firefox=/some/path/processes-firefox/ps_rss.rrd:value:AVERAGE",
-            rrd.graph_args[0][0]
-        );
-        assert_eq!("LINE3:firefox#00ff00:\"firefox\"", rrd.graph_args[0][1]);
-
-        Ok(())
-    }
-
-    #[test]
-    pub fn rrdtool_with_process_rss_process_name_with_space() -> Result<()> {
-        let mut rrd = Rrdtool::new(Path::new("/some/path"));
-
-        rrd.with_process_rss(
-            PathBuf::from("/some/path"),
-            String::from("rust language server"),
-            String::from("#00ff00"),
-            0,
-        );
-
-        assert_eq!(2, rrd.common_args.len() + rrd.graph_args[0].len());
-        assert_eq!(
-            "DEF:rust=/some/path/processes-rust language server/ps_rss.rrd:value:AVERAGE",
-            rrd.graph_args[0][0]
-        );
-        assert_eq!(
-            "LINE3:rust#00ff00:\"rust language server\"",
-            rrd.graph_args[0][1]
-        );
-
-        Ok(())
-    }
-
-    #[test]
-    pub fn rrdtool_with_processes_rss_more_than_max_processes() -> Result<()> {
-        let paths = vec![
-            Path::new("/tmp/processes-firefox"),
-            Path::new("/tmp/processes-chrome"),
-            Path::new("/tmp/processes-dolphin"),
-            Path::new("/tmp/processes-rust language server"),
-            Path::new("/tmp/processes-vscode"),
-        ];
-
-        for path in &paths {
-            if !path.exists() {
-                create_dir(path)?;
-            }
-        }
-
-        let mut rrd = Rrdtool::new(Path::new("/tmp"));
-        rrd.with_max_processes(Some(2))?;
-
-        rrd.with_processes_rss(None)?;
-
-        for path in paths {
-            if path.exists() {
-                remove_dir(path)?;
-            }
-        }
-
-        assert_eq!(3, rrd.graph_args.len());
-
-        Ok(())
-    }
-
-    #[test]
-    pub fn rrdtool_get_processes_names_from_directory_local() -> Result<()> {
-        let paths = vec![
-            Path::new("/tmp/processes-firefox"),
-            Path::new("/tmp/processes-chrome"),
-            Path::new("/tmp/processes-dolphin"),
-            Path::new("/tmp/processes-rust language server"),
-        ];
-
-        for path in &paths {
-            if !path.exists() {
-                create_dir(path)?;
-            }
-        }
-
-        let rrd = Rrdtool::new(Path::new("/tmp"));
-
-        let mut processes = rrd.get_processes_names_from_directory()?;
-
-        processes.sort();
-        assert_eq!(4, processes.len());
-        assert_eq!("chrome", processes[0]);
-        assert_eq!("dolphin", processes[1]);
-        assert_eq!("firefox", processes[2]);
-        assert_eq!("rust language server", processes[3]);
-
-        for path in &paths {
-            if path.exists() {
-                remove_dir(path)?;
-            }
-        }
-
-        Ok(())
-    }
-
-    #[test]
-    pub fn rrdtool_get_processes_names_from_remote_directory_network_hostname() -> Result<()> {
-        let processes = vec!["chrome", "dolphin", "firefox"];
-        let temp = TempDir::new().unwrap();
-        let origin_path =
-            String::from(whoami::username() + "@localhost:" + temp.path().to_str().unwrap());
-        let origin_path = Path::new(&origin_path);
-
-        for process in &processes {
-            create_dir(Path::new(temp.path()).join(String::from("processes-") + process))?;
-        }
-
-        let rrd = Rrdtool::new(origin_path);
-
-        let mut found_processes = rrd.get_processes_names_from_directory()?;
-
-        found_processes.sort();
-        assert_eq!(3, found_processes.len());
-        assert_eq!("chrome", found_processes[0]);
-        assert_eq!("dolphin", found_processes[1]);
-        assert_eq!("firefox", found_processes[2]);
-
-        for process in processes {
-            remove_dir(Path::new(temp.path()).join(String::from("processes-") + process))?;
-        }
-
         Ok(())
     }
 
@@ -757,45 +469,6 @@ pub mod tests {
         assert_eq!("/some/remote/path/", path);
         assert_eq!("twardak", username.unwrap());
         assert_eq!("10.0.0.52", hostname.unwrap());
-
-        Ok(())
-    }
-
-    #[test]
-    pub fn rrdtool_filter_processes_none() -> Result<()> {
-        let processes = vec![
-            String::from("firefox"),
-            String::from("chrome"),
-            String::from("dolphin"),
-        ];
-        let filtered = Rrdtool::filter_processes(processes.to_vec(), None)?;
-        assert_eq!(processes, filtered);
-
-        Ok(())
-    }
-
-    #[test]
-    pub fn rrdtool_filter_processes_some() -> Result<()> {
-        let processes = vec![
-            String::from("firefox"),
-            String::from("chrome"),
-            String::from("dolphin"),
-            String::from("notepad"),
-        ];
-
-        let filter = vec![
-            String::from("dolphin"),
-            String::from("firefox"),
-            String::from("notes"),
-        ];
-
-        let mut filtered = Rrdtool::filter_processes(processes.to_vec(), Some(filter.to_vec()))?;
-        filtered.sort();
-
-        assert_eq!(
-            vec![String::from("dolphin"), String::from("firefox")],
-            filtered
-        );
 
         Ok(())
     }

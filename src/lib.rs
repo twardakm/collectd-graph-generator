@@ -1,4 +1,6 @@
 pub mod config;
+pub mod memory;
+pub mod processes;
 pub mod rrdtool;
 
 use anyhow::{Context, Result};
@@ -19,10 +21,8 @@ pub fn run(config: Config) -> Result<()> {
         .context("Failed with_width")?
         .with_height(config.height)
         .context("Failed with_height")?
-        .with_max_processes(config.max_processes)
-        .context("Failed with_max_processes")?
-        .with_processes_rss(config.processes)
-        .context("Failed with_processes_rss")?
+        .with_plugins(config.plugins_config)
+        .context("Failed to execute plugins")?
         .exec()
         .context("Failed to execute rrdtool")?;
 

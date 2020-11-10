@@ -51,6 +51,12 @@ args:
             - timespan
         requires:
             - end
+    - plugins:
+        long: plugins
+        short: p
+        about: "List of plugins separated by comma \",\" to generate graph for, available plugins: \n- processes\n- memory"
+        takes_value: true
+        default_value: "processes"
     - processes:
         long: processes
         about: List of processes to generate graph for, separated by ","
