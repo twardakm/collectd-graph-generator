@@ -97,30 +97,8 @@ impl<'a> Config<'a> {
             None => unreachable!(),
         };
 
-        let processes_to_draw = match cli.value_of("processes") {
-            Some(processes) => Some(
-                Config::parse_processes(String::from(processes))
-                    .context(format!("Cannot parse processes {}", processes))?,
-            ),
-            None => None,
-        };
-
-        let max_processes = match cli.value_of("max_processes") {
-            Some(max_processes) => Some(
-                max_processes
-                    .parse::<usize>()
-                    .context("Failed to parse max_processes argument")?,
-            ),
-            None => Some(rrdtool::Rrdtool::COLORS.len()),
-        };
-
-        let processes = match plugins.contains(&rrdtool::Plugins::Processes) {
-            true => Some(processes::ProcessesData::new(
-                max_processes.unwrap(),
-                processes_to_draw,
-            )),
-            false => None,
-        };
+        let processes =
+            Config::get_processes_data(cli, &plugins).context("Failed to get processes data")?;
 
         let plugins_config = PluginsConfig {
             plugins: plugins,
@@ -207,14 +185,6 @@ impl<'a> Config<'a> {
             }
         }
     }
-
-    /// Return vector of processes to draw graph for from CLI provided list
-    fn parse_processes(processes: String) -> anyhow::Result<Vec<String>> {
-        Ok(processes
-            .split(",")
-            .map(|s| String::from(s))
-            .collect::<Vec<String>>())
-    }
 }
 
 #[cfg(test)]
@@ -272,16 +242,6 @@ pub mod tests {
 
         assert!(864001 >= (now - start));
         assert_eq!(864000, end - start);
-
-        Ok(())
-    }
-
-    #[test]
-    pub fn parse_processes_3_processes() -> Result<()> {
-        let mut processes = Config::parse_processes(String::from("firefox,chrome,dolphin"))?;
-
-        processes.sort();
-        assert_eq!(vec!("chrome", "dolphin", "firefox"), processes);
 
         Ok(())
     }

@@ -1,4 +1,5 @@
-use super::rrdtool::{Plugin, Rrdtool, Target};
+use super::super::config;
+use super::rrdtool::{Plugin, Plugins, Rrdtool, Target};
 
 use anyhow::{Context, Result};
 use log::{debug, trace};
@@ -207,8 +208,49 @@ impl Plugin<&ProcessesData> for Rrdtool {
     }
 }
 
+impl<'a> config::Config<'a> {
+    pub fn get_processes_data(
+        cli: &'a clap::ArgMatches,
+        plugins: &Vec<Plugins>,
+    ) -> Result<Option<ProcessesData>> {
+        let processes_to_draw = match cli.value_of("processes") {
+            Some(processes) => Some(
+                config::Config::parse_processes(String::from(processes))
+                    .context(format!("Cannot parse processes {}", processes))?,
+            ),
+            None => None,
+        };
+
+        let max_processes = match cli.value_of("max_processes") {
+            Some(max_processes) => Some(
+                max_processes
+                    .parse::<usize>()
+                    .context("Failed to parse max_processes argument")?,
+            ),
+            None => Some(Rrdtool::COLORS.len()),
+        };
+
+        Ok(match plugins.contains(&Plugins::Processes) {
+            true => Some(ProcessesData::new(
+                max_processes.unwrap(),
+                processes_to_draw,
+            )),
+            false => None,
+        })
+    }
+
+    /// Return vector of processes to draw graph for from CLI provided list
+    fn parse_processes(processes: String) -> anyhow::Result<Vec<String>> {
+        Ok(processes
+            .split(",")
+            .map(|s| String::from(s))
+            .collect::<Vec<String>>())
+    }
+}
+
 #[cfg(test)]
 pub mod tests {
+    use super::super::super::config;
     use super::*;
 
     use anyhow::Result;
@@ -398,6 +440,17 @@ pub mod tests {
             vec![String::from("dolphin"), String::from("firefox")],
             filtered
         );
+
+        Ok(())
+    }
+
+    #[test]
+    pub fn parse_processes_3_processes() -> Result<()> {
+        let mut processes =
+            config::Config::parse_processes(String::from("firefox,chrome,dolphin"))?;
+
+        processes.sort();
+        assert_eq!(vec!("chrome", "dolphin", "firefox"), processes);
 
         Ok(())
     }

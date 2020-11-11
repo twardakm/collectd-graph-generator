@@ -1,5 +1,5 @@
 name: collectd-graph-generator
-version: "0.1.0"
+version: "0.2.0"
 author: Marcin Twardak <twardakm@gmail.com>
 about: Generates graphs from collectd data
 args:
@@ -54,7 +54,7 @@ args:
     - plugins:
         long: plugins
         short: p
-        about: "List of plugins separated by comma \",\" to generate graph for, available plugins: \n- processes\n- memory"
+        about: "List of plugins separated by comma \",\" to generate graph for, available plugins: \n- processes\n"
         takes_value: true
         default_value: "processes"
     - processes:
