@@ -263,12 +263,14 @@ pub mod tests {
 
     #[test]
     pub fn rrdtool_with_processes_rss_more_than_max_processes() -> Result<()> {
+        let temp = TempDir::new().unwrap();
+
         let paths = vec![
-            Path::new("/tmp/processes-firefox"),
-            Path::new("/tmp/processes-chrome"),
-            Path::new("/tmp/processes-dolphin"),
-            Path::new("/tmp/processes-rust language server"),
-            Path::new("/tmp/processes-vscode"),
+            temp.path().join("processes-firefox"),
+            temp.path().join("processes-chrome"),
+            temp.path().join("processes-dolphin"),
+            temp.path().join("processes-rust language server"),
+            temp.path().join("processes-vscode"),
         ];
 
         for path in &paths {
@@ -277,7 +279,7 @@ pub mod tests {
             }
         }
 
-        let mut rrd = Rrdtool::new(Path::new("/tmp"));
+        let mut rrd = Rrdtool::new(temp.path());
 
         rrd.enter_plugin(&ProcessesData {
             max_processes: 2,
@@ -297,11 +299,13 @@ pub mod tests {
 
     #[test]
     pub fn rrdtool_get_processes_names_from_directory_local() -> Result<()> {
+        let temp = TempDir::new().unwrap();
+
         let paths = vec![
-            Path::new("/tmp/processes-firefox"),
-            Path::new("/tmp/processes-chrome"),
-            Path::new("/tmp/processes-dolphin"),
-            Path::new("/tmp/processes-rust language server"),
+            temp.path().join("processes-firefox"),
+            temp.path().join("processes-chrome"),
+            temp.path().join("processes-dolphin"),
+            temp.path().join("processes-rust language server"),
         ];
 
         for path in &paths {
@@ -310,7 +314,7 @@ pub mod tests {
             }
         }
 
-        let rrd = Rrdtool::new(Path::new("/tmp"));
+        let rrd = Rrdtool::new(temp.path());
 
         let mut processes = rrd.get_processes_names_from_directory()?;
 
