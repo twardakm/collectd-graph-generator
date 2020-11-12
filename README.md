@@ -1,5 +1,7 @@
 # collectd-graph-generator
 
+[![Build Status](https://travis-ci.org/twardakm/collectd-graph-generator.svg?branch=main)](https://travis-ci.org/twardakm/collectd-graph-generator)
+
 ##### Table of Contents
 
 * [Overview](#overview)
