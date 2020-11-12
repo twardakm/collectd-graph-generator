@@ -1,5 +1,4 @@
 use super::config;
-use super::memory::memory;
 
 use anyhow::{Context, Result};
 use log::{debug, error, info, trace};
@@ -144,7 +143,7 @@ impl Rrdtool {
                         .context("Failed \"processes\" plugin")?;
                 }
                 Plugins::Memory => {
-                    self.enter_plugin(memory::MemoryData::new(String::from("dummy")))
+                    self.enter_plugin(plugins_config.memory.as_ref().unwrap())
                         .context("Failed \"memory\" plugin")?;
                 }
             };

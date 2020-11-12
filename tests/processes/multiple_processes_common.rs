@@ -24,6 +24,7 @@ pub fn multiple_processes<'a>(input_dir: &'a Path) -> Result<()> {
     let plugins_config = PluginsConfig {
         plugins: vec![Plugins::Processes],
         processes: Some(ProcessesData::new(Rrdtool::COLORS.len(), None)),
+        memory: None,
     };
 
     debug!(
@@ -73,6 +74,7 @@ pub fn multiple_processes_multiple_files<'a>(input_dir: &'a Path) -> Result<()> 
     let plugins_config = PluginsConfig {
         plugins: vec![Plugins::Processes],
         processes: Some(ProcessesData::new(3, None)),
+        memory: None,
     };
 
     debug!(
@@ -171,6 +173,7 @@ pub fn multiple_processes_local_filtered_names<'a>(input_dir: &'a Path) -> Resul
                 String::from("some non existing process"),
             ]),
         )),
+        memory: None,
     };
 
     debug!(

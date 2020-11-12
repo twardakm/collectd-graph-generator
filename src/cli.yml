@@ -54,7 +54,7 @@ args:
     - plugins:
         long: plugins
         short: p
-        about: "List of plugins separated by comma \",\" to generate graph for, available plugins: \n- processes\n"
+        about: "List of plugins separated by comma \",\" to generate graph for, available plugins: \n- processes\n- memory"
         takes_value: true
         default_value: "processes"
     - processes:
@@ -66,4 +66,9 @@ args:
         short: m
         about: Set maximum number of processes on one chart (up to 20). If more processes are watched by collectd, separate files will be created with appendices, e.g. processes_1.png, processes_2.png
         takes_value: true
+    - memory:
+        long: memory
+        about: "List of memory data to draw separated by comma \",\", available data:\n- buffered,\n- cached,\n- free,\n- slab_recl,\n- slab_unrecl,\n- used"
+        takes_value: true
+        default_value: "free"
 

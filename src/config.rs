@@ -1,4 +1,4 @@
-use super::{processes::processes, rrdtool};
+use super::{memory::memory_data, processes::processes, rrdtool};
 use anyhow::{anyhow, Context};
 use std::path::Path;
 use std::str::FromStr;
@@ -32,6 +32,8 @@ pub struct PluginsConfig {
     pub plugins: Vec<rrdtool::Plugins>,
     /// Processes plugin
     pub processes: Option<processes::ProcessesData>,
+    /// Memory plugin
+    pub memory: Option<memory_data::MemoryData>,
 }
 
 impl<'a> Config<'a> {
@@ -80,29 +82,19 @@ impl<'a> Config<'a> {
         };
 
         let plugins = match cli.value_of("plugins") {
-            Some(plugins) => {
-                let mut vec = Vec::new();
-
-                for plugin in plugins.split(",").collect::<Vec<&str>>() {
-                    let plugin = match rrdtool::Plugins::from_str(plugin) {
-                        Ok(plugin) => plugin,
-                        Err(_) => anyhow::bail!("Failed to parse plugin: {:?}", plugins),
-                    };
-
-                    vec.push(plugin);
-                }
-
-                vec
-            }
+            Some(plugins) => Config::get_vec_of_type_from_cli::<rrdtool::Plugins>(plugins).unwrap(),
             None => unreachable!(),
         };
 
         let processes =
             Config::get_processes_data(cli, &plugins).context("Failed to get processes data")?;
 
+        let memory = Config::get_memory_data(cli, &plugins).context("Failed to get memory data")?;
+
         let plugins_config = PluginsConfig {
             plugins: plugins,
             processes: processes,
+            memory: memory,
         };
 
         Ok(Config {
@@ -185,6 +177,19 @@ impl<'a> Config<'a> {
             }
         }
     }
+
+    pub fn get_vec_of_type_from_cli<T>(args: &'a str) -> anyhow::Result<Vec<T>>
+    where
+        T: FromStr,
+        <T as std::str::FromStr>::Err: std::fmt::Debug,
+    {
+        Ok(args
+            .split(",")
+            .collect::<Vec<&str>>()
+            .iter()
+            .map(|arg| T::from_str(arg).unwrap())
+            .collect::<Vec<T>>())
+    }
 }
 
 #[cfg(test)]
@@ -242,6 +247,19 @@ pub mod tests {
 
         assert!(864001 >= (now - start));
         assert_eq!(864000, end - start);
+
+        Ok(())
+    }
+
+    #[test]
+    pub fn get_plugins_from_cli() -> Result<()> {
+        let plugins =
+            Config::get_vec_of_type_from_cli::<rrdtool::Plugins>("processes,memory").unwrap();
+
+        assert_eq!(2, plugins.len());
+
+        assert!(plugins.contains(&rrdtool::Plugins::Processes));
+        assert!(plugins.contains(&rrdtool::Plugins::Memory));
 
         Ok(())
     }
