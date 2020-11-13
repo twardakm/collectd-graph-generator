@@ -4,7 +4,7 @@ use tempfile::TempDir;
 
 use cgg::config::PluginsConfig;
 use cgg::memory::{memory_data::MemoryData, memory_type::MemoryType};
-use cgg::rrdtool::{Plugins, Rrdtool};
+use cgg::rrdtool::rrdtool::{Plugins, Rrdtool};
 
 #[test]
 #[ignore]

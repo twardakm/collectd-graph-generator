@@ -1,6 +1,6 @@
 use super::super::config;
 use super::memory_type::MemoryType;
-use super::rrdtool::Plugins;
+use super::rrdtool::rrdtool::Plugins;
 use anyhow::{Context, Result};
 
 #[derive(Debug)]

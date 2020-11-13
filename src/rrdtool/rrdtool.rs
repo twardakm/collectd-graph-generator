@@ -1,4 +1,5 @@
-use super::config;
+use super::super::config;
+use super::graph_arguments::GraphArguments;
 
 use anyhow::{Context, Result};
 use log::{debug, error, info, trace};
@@ -23,7 +24,7 @@ pub struct Rrdtool {
     /// Vector of vectors of parameters, passed later to system wide command
     /// 2D vector is used in case of e.g. too much processes in one chart,
     /// each dimension keeps arguments for one chart.
-    pub graph_args: Vec<Vec<String>>,
+    pub graph_args: GraphArguments,
     /// In case of SSH connection
     pub username: Option<String>,
     /// In case of SSH connection
@@ -39,7 +40,7 @@ pub trait Plugin<T> {
 }
 
 /// Enum used to choose between local and remote data
-#[derive(Copy, Clone, PartialEq)]
+#[derive(Copy, Clone, PartialEq, Debug)]
 pub enum Target {
     Local,
     Remote,
@@ -81,7 +82,7 @@ impl Rrdtool {
             subcommand: String::from(""),
             output_filename: String::from(""),
             common_args: Vec::new(),
-            graph_args: Vec::new(),
+            graph_args: GraphArguments::new(target),
             username: username,
             hostname: hostname,
             remote_filename: None,
@@ -268,7 +269,7 @@ impl Rrdtool {
     fn build_rrdtool_args(&self) -> Vec<Vec<String>> {
         let mut commands = Vec::new();
 
-        let no_of_output_files = self.graph_args.len();
+        let no_of_output_files = self.graph_args.args.len();
 
         debug!("Building arguments for {} files.", no_of_output_files);
 
@@ -298,7 +299,7 @@ impl Rrdtool {
                 commands[index].push(String::from(common_arg));
             }
 
-            for graph_arg in &self.graph_args[index] {
+            for graph_arg in &self.graph_args.args[index] {
                 commands[index].push(String::from(graph_arg));
             }
 
@@ -314,7 +315,7 @@ impl Rrdtool {
 
     /// Build output filename based on current index and number of expected output files
     fn get_output_filename(&self, index: usize) -> String {
-        match self.graph_args.len() {
+        match self.graph_args.args.len() {
             1 => String::from(self.output_filename.as_str()),
             _ => {
                 let mut output_filename = String::from(self.output_filename.as_str());
@@ -401,7 +402,7 @@ pub mod tests {
         assert_eq!("out.png", rrd.output_filename);
         assert_eq!("graph", rrd.subcommand);
         assert_eq!(4, rrd.common_args.len());
-        assert_eq!(0, rrd.graph_args.len());
+        assert_eq!(0, rrd.graph_args.args.len());
         Ok(())
     }
 
@@ -479,7 +480,7 @@ pub mod tests {
         let mut rrd = Rrdtool::new(Path::new("/some/path"));
 
         rrd.with_output_file(String::from("some_file.png"))?;
-        rrd.graph_args.push(Vec::new());
+        rrd.graph_args.new_graph();
 
         let filename = rrd.get_output_filename(0);
 
@@ -493,9 +494,9 @@ pub mod tests {
         let mut rrd = Rrdtool::new(Path::new("/some/path"));
 
         rrd.with_output_file(String::from("some other file.png"))?;
-        rrd.graph_args.push(Vec::new());
-        rrd.graph_args.push(Vec::new());
-        rrd.graph_args.push(Vec::new());
+        rrd.graph_args.new_graph();
+        rrd.graph_args.new_graph();
+        rrd.graph_args.new_graph();
 
         assert_eq!("some other file_1.png", rrd.get_output_filename(0));
         assert_eq!("some other file_2.png", rrd.get_output_filename(1));

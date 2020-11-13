@@ -5,7 +5,7 @@ use tempfile::TempDir;
 
 use cgg::config::PluginsConfig;
 use cgg::processes::processes::ProcessesData;
-use cgg::rrdtool::{Plugins, Rrdtool};
+use cgg::rrdtool::{rrdtool::Plugins, rrdtool::Rrdtool};
 
 pub fn multiple_processes<'a>(input_dir: &'a Path) -> Result<()> {
     let _ = env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("error"))

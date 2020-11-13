@@ -1,5 +1,5 @@
 use super::super::config;
-use super::rrdtool::{Plugin, Plugins, Rrdtool, Target};
+use super::rrdtool::rrdtool::{Plugin, Plugins, Rrdtool, Target};
 
 use anyhow::{Context, Result};
 use log::{debug, trace};
@@ -121,30 +121,12 @@ impl Rrdtool {
             .join(String::from("processes-") + &process)
             .join("ps_rss.rrd");
 
-        let process_first_word = process.split_whitespace().next().unwrap();
-
-        if self.graph_args.len() <= graph_args_no {
-            self.graph_args.push(Vec::new())
+        if self.graph_args.args.len() <= graph_args_no {
+            self.graph_args.new_graph();
         }
 
-        self.graph_args[graph_args_no].push(
-            String::from("DEF:")
-                + process_first_word
-                + "="
-                + match self.target {
-                    Target::Local => "",
-                    Target::Remote => "\"",
-                }
-                + path.as_os_str().to_str().unwrap()
-                + match self.target {
-                    Target::Local => "",
-                    Target::Remote => "\"",
-                }
-                + ":value:AVERAGE",
-        );
-
-        self.graph_args[graph_args_no]
-            .push(String::from("LINE3:") + process_first_word + &color + ":\"" + &process + "\"");
+        self.graph_args
+            .push(process.as_str(), color.as_str(), 3, path.to_str().unwrap());
 
         self
     }
@@ -269,12 +251,15 @@ pub mod tests {
             0,
         );
 
-        assert_eq!(2, rrd.common_args.len() + rrd.graph_args[0].len());
+        assert_eq!(2, rrd.common_args.len() + rrd.graph_args.args[0].len());
         assert_eq!(
             "DEF:firefox=/some/path/processes-firefox/ps_rss.rrd:value:AVERAGE",
-            rrd.graph_args[0][0]
+            rrd.graph_args.args[0][0]
         );
-        assert_eq!("LINE3:firefox#00ff00:\"firefox\"", rrd.graph_args[0][1]);
+        assert_eq!(
+            "LINE3:firefox#00ff00:\"firefox\"",
+            rrd.graph_args.args[0][1]
+        );
 
         Ok(())
     }
@@ -290,14 +275,14 @@ pub mod tests {
             0,
         );
 
-        assert_eq!(2, rrd.common_args.len() + rrd.graph_args[0].len());
+        assert_eq!(2, rrd.common_args.len() + rrd.graph_args.args[0].len());
         assert_eq!(
             "DEF:rust=/some/path/processes-rust language server/ps_rss.rrd:value:AVERAGE",
-            rrd.graph_args[0][0]
+            rrd.graph_args.args[0][0]
         );
         assert_eq!(
             "LINE3:rust#00ff00:\"rust language server\"",
-            rrd.graph_args[0][1]
+            rrd.graph_args.args[0][1]
         );
 
         Ok(())
@@ -334,7 +319,7 @@ pub mod tests {
             }
         }
 
-        assert_eq!(3, rrd.graph_args.len());
+        assert_eq!(3, rrd.graph_args.args.len());
 
         Ok(())
     }

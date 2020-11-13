@@ -5,7 +5,7 @@ pub mod rrdtool;
 
 use anyhow::{Context, Result};
 use config::Config;
-use rrdtool::Rrdtool;
+use rrdtool::rrdtool::Rrdtool;
 
 pub fn run(config: Config) -> Result<()> {
     Rrdtool::new(config.input_dir)

@@ -1,6 +1,6 @@
 use super::memory_data::MemoryData;
 use super::memory_type::MemoryType;
-use super::rrdtool::{Plugin, Rrdtool};
+use super::rrdtool::rrdtool::{Plugin, Rrdtool};
 
 use std::path::Path;
 
@@ -19,17 +19,19 @@ impl Plugin<&MemoryData> for Rrdtool {
 
         trace!("All expected files exist");
 
-        let mut graph_args = Vec::new();
+        self.graph_args.new_graph();
 
         for i in 0..data.memory_types.len() {
-            let mut args = get_graph_args_for_memory_type(i, &memory_dir, &data.memory_types[i])
-                .context("Failed to generate graph arguments")?;
-            graph_args.append(&mut args);
+            self.graph_args.push(
+                data.memory_types[i].to_string().as_str(),
+                Rrdtool::COLORS[i],
+                5,
+                memory_dir
+                    .join(data.memory_types[i].to_filename())
+                    .to_str()
+                    .unwrap(),
+            );
         }
-
-        self.graph_args.push(Vec::new());
-        let len = self.graph_args.len() - 1;
-        self.graph_args[len].append(&mut graph_args);
 
         trace!("Memory plugin exit");
 
@@ -49,37 +51,6 @@ fn verify_data_files_exist<'a>(memory_dir: &'a Path, memory_types: &Vec<MemoryTy
             memory_dir.to_str().unwrap()
         ),
     }
-}
-
-fn get_graph_args_for_memory_type<'a>(
-    iter: usize,
-    memory_dir: &'a Path,
-    memory_type: &MemoryType,
-) -> Result<Vec<String>> {
-    debug!("Generating arguments for {:?}", memory_type);
-
-    let mut graph_args = Vec::new();
-
-    graph_args.push(
-        String::from("DEF:")
-            + &memory_type.to_string()
-            + "="
-            + memory_dir.join(memory_type.to_filename()).to_str().unwrap()
-            + ":value:AVERAGE",
-    );
-
-    graph_args.push(
-        String::from("LINE5:")
-            + &memory_type.to_string()
-            + Rrdtool::COLORS[iter]
-            + ":\""
-            + &memory_type.to_string()
-            + "\"",
-    );
-
-    trace!("Generated arguments: {:?}", graph_args);
-
-    Ok(graph_args)
 }
 
 #[cfg(test)]
@@ -111,34 +82,6 @@ pub mod tests {
 
         assert!(memory_types_ok.is_ok());
         assert!(memory_types_nok.is_err());
-
-        Ok(())
-    }
-
-    #[test]
-    fn get_graph_args_for_memory_type() -> Result<()> {
-        let free = super::get_graph_args_for_memory_type(
-            0,
-            Path::new("/some/path/to/memory"),
-            &MemoryType::Free,
-        )?;
-        let cached = super::get_graph_args_for_memory_type(
-            1,
-            Path::new("/some/path/to/memory"),
-            &MemoryType::Cached,
-        )?;
-
-        assert_eq!(
-            "DEF:free=/some/path/to/memory/memory-free.rrd:value:AVERAGE",
-            free[0]
-        );
-        assert_eq!("LINE5:free#e6194b:\"free\"", free[1]);
-
-        assert_eq!(
-            "DEF:cached=/some/path/to/memory/memory-cached.rrd:value:AVERAGE",
-            cached[0]
-        );
-        assert_eq!("LINE5:cached#3cb44b:\"cached\"", cached[1]);
 
         Ok(())
     }

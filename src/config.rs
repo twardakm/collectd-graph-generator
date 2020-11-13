@@ -29,7 +29,7 @@ pub struct Config<'a> {
 
 pub struct PluginsConfig {
     /// Vector of enums to choose which plugins should be executed
-    pub plugins: Vec<rrdtool::Plugins>,
+    pub plugins: Vec<rrdtool::rrdtool::Plugins>,
     /// Processes plugin
     pub processes: Option<processes::ProcessesData>,
     /// Memory plugin
@@ -82,7 +82,9 @@ impl<'a> Config<'a> {
         };
 
         let plugins = match cli.value_of("plugins") {
-            Some(plugins) => Config::get_vec_of_type_from_cli::<rrdtool::Plugins>(plugins).unwrap(),
+            Some(plugins) => {
+                Config::get_vec_of_type_from_cli::<rrdtool::rrdtool::Plugins>(plugins).unwrap()
+            }
             None => unreachable!(),
         };
 
@@ -254,12 +256,13 @@ pub mod tests {
     #[test]
     pub fn get_plugins_from_cli() -> Result<()> {
         let plugins =
-            Config::get_vec_of_type_from_cli::<rrdtool::Plugins>("processes,memory").unwrap();
+            Config::get_vec_of_type_from_cli::<rrdtool::rrdtool::Plugins>("processes,memory")
+                .unwrap();
 
         assert_eq!(2, plugins.len());
 
-        assert!(plugins.contains(&rrdtool::Plugins::Processes));
-        assert!(plugins.contains(&rrdtool::Plugins::Memory));
+        assert!(plugins.contains(&rrdtool::rrdtool::Plugins::Processes));
+        assert!(plugins.contains(&rrdtool::rrdtool::Plugins::Memory));
 
         Ok(())
     }
