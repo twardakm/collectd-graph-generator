@@ -1,11 +1,11 @@
 use super::super::config;
+use super::rrdtool::remote;
 use super::rrdtool::rrdtool::{Plugin, Plugins, Rrdtool, Target};
 
 use anyhow::{Context, Result};
 use log::{debug, trace};
 use std::fs::read_dir;
 use std::path::PathBuf;
-use std::process::Command;
 
 #[derive(Debug)]
 pub struct ProcessesData {
@@ -55,32 +55,18 @@ impl Rrdtool {
 
     /// Get processes names from remote directory via SSH and ls commands
     fn get_processes_names_from_remote_directory<'a>(&self) -> Result<Vec<String>> {
-        let network_address =
-            String::from(self.username.as_ref().unwrap()) + "@" + &self.hostname.as_ref().unwrap();
+        let paths = remote::ls(
+            &self.input_dir,
+            &self.username.as_ref().unwrap(),
+            &self.hostname.as_ref().unwrap(),
+        )
+        .context(format!(
+            "Failed to read remote directory {}",
+            self.input_dir
+        ))?;
 
-        let output = Command::new("ssh")
-            .args(&[
-                &network_address,
-                &String::from("ls"),
-                &String::from(self.input_dir.as_str()),
-            ])
-            .output()
-            .context("Failed to execute SSH")?;
-
-        if !output.status.success() {
-            Rrdtool::print_process_command_output(output);
-
-            anyhow::bail!(
-                "Failed to list remote directories in {}:{}!",
-                network_address,
-                self.input_dir.as_str()
-            );
-        }
-
-        let output = String::from_utf8_lossy(&output.stdout);
-
-        let processes = output
-            .lines()
+        let processes = paths
+            .iter()
             .filter_map(|path| path.strip_prefix("processes-"))
             .map(|s| String::from(s))
             .collect::<Vec<String>>();

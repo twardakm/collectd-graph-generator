@@ -191,7 +191,7 @@ impl Rrdtool {
                 ))?;
 
             if output.status.success() == false {
-                Rrdtool::print_process_command_output(output);
+                print_process_command_output(output);
 
                 anyhow::bail!(
                     "Local rrdtool returned some errors! {} {:?}",
@@ -231,7 +231,7 @@ impl Rrdtool {
                 .context("Failed to execute SSH command")?;
 
             if output.status.success() == false {
-                Rrdtool::print_process_command_output(output);
+                print_process_command_output(output);
 
                 anyhow::bail!("Failed to execute ssh command: ssh {:?}", args)
             }
@@ -252,7 +252,7 @@ impl Rrdtool {
                 .context("Failed to execute SSH")?;
 
             if output.status.success() == false {
-                Rrdtool::print_process_command_output(output);
+                print_process_command_output(output);
 
                 anyhow::bail!("Failed to scp result image back to host: scp {:?}", args)
             }
@@ -374,13 +374,13 @@ impl Rrdtool {
             }
         }
     }
+}
 
-    /// Print output of system command
-    pub fn print_process_command_output(output: std::process::Output) {
-        error!("status: {}", output.status);
-        error!("stdout: {}", String::from_utf8_lossy(&output.stdout));
-        error!("stderr: {}", String::from_utf8_lossy(&output.stderr));
-    }
+/// Print output of system command
+pub fn print_process_command_output(output: std::process::Output) {
+    error!("status: {}", output.status);
+    error!("stdout: {}", String::from_utf8_lossy(&output.stdout));
+    error!("stderr: {}", String::from_utf8_lossy(&output.stderr));
 }
 
 #[cfg(test)]
