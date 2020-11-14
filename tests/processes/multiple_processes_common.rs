@@ -55,7 +55,7 @@ pub fn multiple_processes<'a>(input_dir: &'a Path) -> Result<()> {
     let metadata = std::fs::metadata(output_file)?;
 
     assert!(metadata.is_file());
-    assert!(metadata.len() > 50000);
+    assert!(metadata.len() > 10000);
 
     Ok(())
 }
@@ -110,35 +110,35 @@ pub fn multiple_processes_multiple_files<'a>(input_dir: &'a Path) -> Result<()> 
 
     let metadata = std::fs::metadata(path)?;
     assert!(metadata.is_file());
-    assert!(metadata.len() > 30000);
+    assert!(metadata.len() > 10000);
 
     let path = output_directory.path().join("other_output_file_2.png");
     assert!(path.exists());
 
     let metadata = std::fs::metadata(path)?;
     assert!(metadata.is_file());
-    assert!(metadata.len() > 30000);
+    assert!(metadata.len() > 10000);
 
     let path = output_directory.path().join("other_output_file_3.png");
     assert!(path.exists());
 
     let metadata = std::fs::metadata(path)?;
     assert!(metadata.is_file());
-    assert!(metadata.len() > 30000);
+    assert!(metadata.len() > 10000);
 
     let path = output_directory.path().join("other_output_file_4.png");
     assert!(path.exists());
 
     let metadata = std::fs::metadata(path)?;
     assert!(metadata.is_file());
-    assert!(metadata.len() > 30000);
+    assert!(metadata.len() > 10000);
 
     let path = output_directory.path().join("other_output_file_5.png");
     assert!(path.exists());
 
     let metadata = std::fs::metadata(path)?;
     assert!(metadata.is_file());
-    assert!(metadata.len() > 30000);
+    assert!(metadata.len() > 10000);
 
     assert!(!output_directory
         .path()
@@ -204,7 +204,7 @@ pub fn multiple_processes_local_filtered_names<'a>(input_dir: &'a Path) -> Resul
     let metadata = std::fs::metadata(output_file)?;
 
     assert!(metadata.is_file());
-    assert!(metadata.len() > 40000);
+    assert!(metadata.len() > 10000);
 
     Ok(())
 }

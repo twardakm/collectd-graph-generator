@@ -64,7 +64,7 @@ fn system_memory_local() -> Result<()> {
     let metadata = std::fs::metadata(output_file)?;
 
     assert!(metadata.is_file());
-    assert!(metadata.len() > 50000);
+    assert!(metadata.len() > 10000);
 
     Ok(())
 }
