@@ -1,16 +1,17 @@
-language: rust
 rust:
-  - stable
-  - beta
   - nightly
-jobs:
-  allow_failures:
-    - rust: nightly
-  fast_finish: true
+
 branches:
   only:
   - main
+
 cache: cargo
+
+matrix:
+  include:
+    - os: linux
+      rust: nightly
+
 before_install:
   - sudo apt-get update
   - sudo apt-get -y install rrdtool openssh-server
@@ -19,6 +20,15 @@ before_install:
   - cat ~/.ssh/id_rsa.pub > ~/.ssh/authorized_keys
   - sudo /etc/init.d/ssh start
   - ssh-keyscan -H localhost >> ~/.ssh/known_hosts
+  - curl -L https://github.com/mozilla/grcov/releases/latest/download/grcov-linux-x86_64.tar.bz2 | tar jxf -
+
 script:
-  - cargo build --verbose
-  - cargo test --verbose
+  - export CARGO_INCREMENTAL=0
+  - export RUSTFLAGS="-Zprofile -Ccodegen-units=1 -Copt-level=0 -Clink-dead-code -Coverflow-checks=off -Zpanic_abort_tests -Cpanic=abort"
+  - export RUSTDOCFLAGS="-Cpanic=abort"
+  - cargo build --verbose $CARGO_OPTIONS
+  - cargo test --verbose $CARGO_OPTIONS
+  - |
+    zip -0 ccov.zip `find . \( -name "collectd-graph-generator*.gc*" \) -print`;
+    ./grcov ccov.zip -s . -t lcov --llvm --branch --ignore-not-existing --ignore "/*" -o lcov.info;
+    bash <(curl -s https://codecov.io/bash) -f lcov.info;
