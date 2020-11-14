@@ -39,6 +39,13 @@ Main motivation for creating this tool was to gather some information from my ho
 ## <a name="supported-collectd-plugins"></a> Supported collectd plugins
 
 * [processes](https://collectd.org/wiki/index.php/Plugin:Processes) - draws graph of RSS memory usage of all, or chosen, processes supervised by collectd. It's possible to define maximum number of processes presented on one graph and if number of processes to draw is greater, multiple files are created.
+* [memory](https://collectd.org/wiki/index.php/Plugin:Memory) - draws graph of system wide memory usage. By default it draws free memory, but other types of memory can be specified in `--memory` arg:
+  * buffered
+  * cached
+  * free
+  * slab_recl
+  * slab_unrecl
+  * used
 
 ## <a name="examples"></a> Examples
 
