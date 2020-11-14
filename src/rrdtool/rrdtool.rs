@@ -426,7 +426,6 @@ pub mod tests {
     }
 
     #[test]
-    #[ignore]
     pub fn rrdtool_with_output_file_remote() -> Result<()> {
         let mut rrd = Rrdtool::new(Path::new("marcin@10.0.0.1:/some/remote/path"));
         rrd.with_output_file(String::from("out.png"))?;

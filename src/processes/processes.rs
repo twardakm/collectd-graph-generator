@@ -348,7 +348,6 @@ pub mod tests {
     }
 
     #[test]
-    #[ignore]
     pub fn rrdtool_get_processes_names_from_remote_directory_network_hostname() -> Result<()> {
         let processes = vec!["chrome", "dolphin", "firefox"];
         let temp = TempDir::new().unwrap();

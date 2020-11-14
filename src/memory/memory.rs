@@ -146,7 +146,6 @@ pub mod tests {
     }
 
     #[test]
-    #[ignore]
     fn verify_data_files_exist_remote() -> Result<()> {
         let temp = TempDir::new().unwrap();
 

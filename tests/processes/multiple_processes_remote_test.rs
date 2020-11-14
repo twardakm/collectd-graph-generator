@@ -4,7 +4,6 @@ use serial_test::serial;
 
 #[test]
 #[serial]
-#[ignore]
 fn multiple_processes_remote() -> Result<()> {
     let local = std::env::current_dir()?.join("tests/processes/data");
     let remote = String::from(whoami::username() + "@localhost:") + local.to_str().unwrap();
@@ -16,7 +15,6 @@ fn multiple_processes_remote() -> Result<()> {
 
 #[test]
 #[serial]
-#[ignore]
 fn multiple_processes_remote_multiple_files() -> Result<()> {
     let local = std::env::current_dir()?.join("tests/processes/data");
     let remote = String::from(whoami::username() + "@localhost:") + local.to_str().unwrap();
@@ -30,7 +28,6 @@ fn multiple_processes_remote_multiple_files() -> Result<()> {
 
 #[test]
 #[serial]
-#[ignore]
 fn multiple_processes_remote_filtered_names() -> Result<()> {
     let local = std::env::current_dir()?.join("tests/processes/data");
     let remote = String::from(whoami::username() + "@localhost:") + local.to_str().unwrap();

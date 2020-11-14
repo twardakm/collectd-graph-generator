@@ -17,6 +17,8 @@ before_install:
   - sudo ssh-keygen -A -f /
   - ssh-keygen -q -t rsa -N '' -f ~/.ssh/id_rsa <<<y 2>&1 >/dev/null
   - cat ~/.ssh/id_rsa.pub > ~/.ssh/authorized_keys
+  - sudo /etc/init.d/ssh start
+  - ssh-keyscan -H localhost >> ~/.ssh/known_hosts
 script:
   - cargo build --verbose
   - cargo test --verbose
