@@ -7,7 +7,6 @@ use cgg::memory::{memory_data::MemoryData, memory_type::MemoryType};
 use cgg::rrdtool::rrdtool::{Plugins, Rrdtool};
 
 #[test]
-#[ignore]
 fn system_memory_local() -> Result<()> {
     let _ = env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("error"))
         .format_timestamp(None)

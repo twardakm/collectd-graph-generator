@@ -7,7 +7,13 @@ jobs:
   allow_failures:
     - rust: nightly
   fast_finish: true
+branches:
+  only:
+  - main
 cache: cargo
+before_install:
+  - sudo apt-get update
+  - sudo apt-get -y install rrdtool
 script:
   - cargo build --verbose
   - cargo test --verbose

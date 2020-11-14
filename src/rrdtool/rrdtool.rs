@@ -407,7 +407,6 @@ pub mod tests {
     }
 
     #[test]
-    #[ignore]
     pub fn rrdtool_simple_exec() -> Result<()> {
         Rrdtool::new(Path::new("/some/local"))
             .with_subcommand(String::from("graph"))?

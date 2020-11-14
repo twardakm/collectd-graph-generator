@@ -2,7 +2,6 @@ use super::multiple_processes_common;
 use anyhow::Result;
 
 #[test]
-#[ignore]
 fn multiple_processes_local() -> Result<()> {
     Ok(multiple_processes_common::multiple_processes(
         &std::env::current_dir()?.join("tests/processes/data"),
@@ -10,7 +9,6 @@ fn multiple_processes_local() -> Result<()> {
 }
 
 #[test]
-#[ignore]
 fn multiple_processes_local_multiple_files() -> Result<()> {
     Ok(
         multiple_processes_common::multiple_processes_multiple_files(
@@ -20,7 +18,6 @@ fn multiple_processes_local_multiple_files() -> Result<()> {
 }
 
 #[test]
-#[ignore]
 fn multiple_processes_local_filtered_names() -> Result<()> {
     Ok(
         multiple_processes_common::multiple_processes_local_filtered_names(
