@@ -41,7 +41,6 @@ pub mod tests {
     use tempfile::TempDir;
 
     #[test]
-    #[ignore]
     fn ls() -> Result<()> {
         let dir = TempDir::new().unwrap();
 

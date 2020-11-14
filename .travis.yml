@@ -13,7 +13,10 @@ branches:
 cache: cargo
 before_install:
   - sudo apt-get update
-  - sudo apt-get -y install rrdtool
+  - sudo apt-get -y install rrdtool openssh-server
+  - sudo ssh-keygen -A -f /
+  - ssh-keygen -q -t rsa -N '' -f ~/.ssh/id_rsa <<<y 2>&1 >/dev/null
+  - cat ~/.ssh/ > ~/.ssh/authorized_keys
 script:
   - cargo build --verbose
   - cargo test --verbose
