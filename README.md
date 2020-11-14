@@ -12,6 +12,7 @@
   * [All supervised processes from local system](#examples-1)
   * [4 specific processes from remote system on 2 separate graphs](#examples-2)
   * [4 specific processes from remote system on 1 graph](#examples-3)
+  * [System wide memory](#examples-4)
 
 ## <a name="overview"></a> Overview
 
@@ -65,3 +66,46 @@ Rust language server and Visual studio code | Dolphin and Plasmashell
 <p align="center"> 
 <img src="examples/processes/1_hour.png">
 </p>
+
+### <a name="examples-4"></a> System wide memory
+<table>
+<tr>
+<td><b>All memory types</b></td>
+<td><b>Default settings (free)</b></td>
+</tr>
+<tr>
+<td>
+
+```bash
+./cgg \
+-i marcin@localhost:/var/lib/collectd/marcin-manjaro/ \
+-p memory \
+-t "last 15 minutes" \
+-o "system wide memory.png" \
+--memory buffered,cached,free,slab_recl,slab_unrecl,used
+```
+</td>
+<td>
+
+```bash
+./cgg \
+-i /var/lib/collectd/marcin-manjaro/ \
+-p memory \
+-t "last 15 minutes" \
+-o "free memory.png"
+```
+</td>
+</tr>
+<tr>
+<td>
+<p align="center">
+<img src="examples/memory/system_wide_memory.png">
+</p>
+</td>
+<td>
+<p align="center">
+<img src="examples/memory/free_memory.png">
+</p>
+</td>
+</tr>
+</table>
