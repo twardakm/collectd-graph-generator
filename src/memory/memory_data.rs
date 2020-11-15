@@ -3,7 +3,7 @@ use super::memory_type::MemoryType;
 use super::rrdtool::rrdtool::Plugins;
 use anyhow::{Context, Result};
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct MemoryData {
     /// Types of data to visualize on graph
     pub memory_types: Vec<MemoryType>,

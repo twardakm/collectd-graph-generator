@@ -3,6 +3,8 @@ use log::debug;
 use tempfile::TempDir;
 
 use cgg::config::PluginsConfig;
+use std::collections::HashMap;
+
 use cgg::memory::{memory_data::MemoryData, memory_type::MemoryType};
 use cgg::rrdtool::rrdtool::{Plugins, Rrdtool};
 
@@ -21,10 +23,13 @@ fn system_memory_local() -> Result<()> {
     let end = 1605275295;
     let start = end - 3600;
 
-    let plugins_config = PluginsConfig {
-        plugins: vec![Plugins::Memory],
-        processes: None,
-        memory: Some(MemoryData::new(vec![
+    let mut plugins_config = PluginsConfig {
+        data: HashMap::new(),
+    };
+
+    plugins_config.data.insert(
+        Plugins::Memory,
+        Box::new(MemoryData::new(vec![
             MemoryType::Buffered,
             MemoryType::Cached,
             MemoryType::Free,
@@ -32,7 +37,7 @@ fn system_memory_local() -> Result<()> {
             MemoryType::SlabUnrecl,
             MemoryType::Used,
         ])),
-    };
+    );
 
     let input_dir = std::env::current_dir()?.join("tests/memory/data");
 

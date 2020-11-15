@@ -1,5 +1,6 @@
 use anyhow::{Context, Result};
 use log::debug;
+use std::collections::HashMap;
 use std::path::Path;
 use tempfile::TempDir;
 
@@ -21,11 +22,14 @@ pub fn multiple_processes<'a>(input_dir: &'a Path) -> Result<()> {
     let end = 1604957225;
     let start = end - 3600;
 
-    let plugins_config = PluginsConfig {
-        plugins: vec![Plugins::Processes],
-        processes: Some(ProcessesData::new(Rrdtool::COLORS.len(), None)),
-        memory: None,
+    let mut plugins_config = PluginsConfig {
+        data: HashMap::new(),
     };
+
+    plugins_config.data.insert(
+        Plugins::Processes,
+        Box::new(ProcessesData::new(Rrdtool::COLORS.len(), None)),
+    );
 
     debug!(
         "TEST: Calling rrdtool with input dir: {}, output file: {}, width: {}, height: {}, start: {}, end: {}",
@@ -71,11 +75,13 @@ pub fn multiple_processes_multiple_files<'a>(input_dir: &'a Path) -> Result<()> 
     let end = 1604957225;
     let start = end - 3600;
 
-    let plugins_config = PluginsConfig {
-        plugins: vec![Plugins::Processes],
-        processes: Some(ProcessesData::new(3, None)),
-        memory: None,
+    let mut plugins_config = PluginsConfig {
+        data: HashMap::new(),
     };
+
+    plugins_config
+        .data
+        .insert(Plugins::Processes, Box::new(ProcessesData::new(3, None)));
 
     debug!(
         "TEST: Calling rrdtool with input dir: {}, output file: {}, start: {}, end: {}",
@@ -162,9 +168,13 @@ pub fn multiple_processes_local_filtered_names<'a>(input_dir: &'a Path) -> Resul
     let end = 1604957225;
     let start = end - 3600;
 
-    let plugins_config = PluginsConfig {
-        plugins: vec![Plugins::Processes],
-        processes: Some(ProcessesData::new(
+    let mut plugins_config = PluginsConfig {
+        data: HashMap::new(),
+    };
+
+    plugins_config.data.insert(
+        Plugins::Processes,
+        Box::new(ProcessesData::new(
             3,
             Some(vec![
                 String::from("baloo_file"),
@@ -173,8 +183,7 @@ pub fn multiple_processes_local_filtered_names<'a>(input_dir: &'a Path) -> Resul
                 String::from("some non existing process"),
             ]),
         )),
-        memory: None,
-    };
+    );
 
     debug!(
         "TEST: Calling rrdtool with input dir: {}, output file: {}, width: {}, height: {}, start: {}, end: {}",

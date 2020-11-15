@@ -1,4 +1,4 @@
-use super::super::config;
+use super::super::*;
 use super::graph_arguments::GraphArguments;
 
 use anyhow::{Context, Result};
@@ -47,7 +47,7 @@ pub enum Target {
 }
 
 /// Enum for choosing collectd plugins
-#[derive(Copy, Clone, PartialEq)]
+#[derive(Copy, Clone, PartialEq, Eq, Hash)]
 pub enum Plugins {
     Processes,
     Memory,
@@ -137,15 +137,23 @@ impl Rrdtool {
 
     /// Run all plugins
     pub fn with_plugins(&mut self, plugins_config: config::PluginsConfig) -> Result<&mut Self> {
-        for plugin in plugins_config.plugins {
+        for (plugin, data) in plugins_config.data.iter() {
             match plugin {
                 Plugins::Processes => {
-                    self.enter_plugin(plugins_config.processes.as_ref().unwrap())
-                        .context("Failed \"processes\" plugin")?;
+                    self.enter_plugin(
+                        data.as_ref()
+                            .downcast_ref::<processes::processes::ProcessesData>()
+                            .context("Failed to cast ProcessData")?,
+                    )
+                    .context("Failed \"process\" plugin")?;
                 }
                 Plugins::Memory => {
-                    self.enter_plugin(plugins_config.memory.as_ref().unwrap())
-                        .context("Failed \"memory\" plugin")?;
+                    self.enter_plugin(
+                        data.as_ref()
+                            .downcast_ref::<memory::memory_data::MemoryData>()
+                            .context("Failed to cast MemoryData")?,
+                    )
+                    .context("Failed \"memory\" plugin")?;
                 }
             };
         }

@@ -7,7 +7,7 @@ use log::{debug, trace};
 use std::fs::read_dir;
 use std::path::PathBuf;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct ProcessesData {
     /// Maximum number of processes in one graph
     max_processes: usize,

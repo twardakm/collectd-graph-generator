@@ -1,5 +1,8 @@
-use super::{memory::memory_data, processes::processes, rrdtool};
+use super::rrdtool;
 use anyhow::{anyhow, Context};
+use rrdtool::rrdtool::Plugins;
+use std::any::Any;
+use std::collections::HashMap;
 use std::path::Path;
 use std::str::FromStr;
 use std::time::SystemTime;
@@ -28,12 +31,8 @@ pub struct Config<'a> {
 }
 
 pub struct PluginsConfig {
-    /// Vector of enums to choose which plugins should be executed
-    pub plugins: Vec<rrdtool::rrdtool::Plugins>,
-    /// Processes plugin
-    pub processes: Option<processes::ProcessesData>,
-    /// Memory plugin
-    pub memory: Option<memory_data::MemoryData>,
+    /// Map of plugins data
+    pub data: HashMap<rrdtool::rrdtool::Plugins, Box<dyn Any + 'static>>,
 }
 
 impl<'a> Config<'a> {
@@ -88,16 +87,34 @@ impl<'a> Config<'a> {
             None => unreachable!(),
         };
 
-        let processes =
-            Config::get_processes_data(cli, &plugins).context("Failed to get processes data")?;
-
-        let memory = Config::get_memory_data(cli, &plugins).context("Failed to get memory data")?;
-
-        let plugins_config = PluginsConfig {
-            plugins: plugins,
-            processes: processes,
-            memory: memory,
+        let mut plugins_config = PluginsConfig {
+            data: HashMap::new(),
         };
+
+        for plugin in plugins.iter() {
+            match plugin {
+                Plugins::Memory => plugins_config
+                    .data
+                    .insert(
+                        *plugin,
+                        Box::new(
+                            Config::get_memory_data(cli, &plugins)
+                                .context("Failed to get memory data")?,
+                        ),
+                    )
+                    .context("Failed to insert memory data into map")?,
+                Plugins::Processes => plugins_config
+                    .data
+                    .insert(
+                        *plugin,
+                        Box::new(
+                            Config::get_processes_data(cli, &plugins)
+                                .context("Failed to get processes data")?,
+                        ),
+                    )
+                    .context("Failed to insert processes data into map")?,
+            };
+        }
 
         Ok(Config {
             input_dir: Path::new(input),
