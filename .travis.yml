@@ -30,5 +30,5 @@ script:
   - cargo test --verbose $CARGO_OPTIONS
   - |
     zip -0 ccov.zip `find . \( -name "cgg*.gc*" \) -print`;
-    ./grcov ccov.zip -s . -t lcov --llvm --branch --ignore-not-existing --ignore "/*" --ignore "src/main.rs" --ignore "src/lib.rs" --excl-start "#\[cfg\(test\)\]" --excl-br-start "#\[cfg\(test\)\]" --excl-line "#\[derive\(" --excl-br-line "#\[derive\(" -o lcov.info;
+    ./grcov ccov.zip -s . -t lcov --llvm --branch --ignore-not-existing --ignore "/*" --ignore "src/main.rs" --ignore "src/lib.rs" --excl-start "#\[cfg\(test\)\]" --excl-br-start "#\[cfg\(test\)\]" --excl-line "#\[derive\(|.*\!" --excl-br-line "#\[derive\(|.*\!" -o lcov.info;
     bash <(curl -s https://codecov.io/bash) -f lcov.info;
