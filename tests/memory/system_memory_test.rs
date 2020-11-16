@@ -1,6 +1,8 @@
+use super::super::common;
+
 use anyhow::{Context, Result};
 use log::debug;
-use tempfile::TempDir;
+use serial_test::serial;
 
 use cgg::config::PluginsConfig;
 use std::collections::HashMap;
@@ -9,15 +11,10 @@ use std::process::Command;
 use cgg::memory::{memory_data::MemoryData, memory_type::MemoryType};
 use cgg::rrdtool::rrdtool::{Plugins, Rrdtool};
 
-#[test]
-fn system_memory_local_from_binary() -> Result<()> {
-    let _ = env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("error"))
-        .format_timestamp(None)
-        .try_init();
+fn system_memory_from_binary(input_dir: &str) -> Result<()> {
+    let output_directory = common::init()?;
 
-    let input_dir = std::env::current_dir()?.join("tests/memory/data");
-    let exec_dir = std::env::current_dir()?.join("target/debug/cgg");
-    let output_directory = TempDir::new()?;
+    let exec_dir = common::get_cgg_exec_path()?;
 
     let status = Command::new(exec_dir)
         .arg("-i")
@@ -36,12 +33,35 @@ fn system_memory_local_from_binary() -> Result<()> {
 }
 
 #[test]
-fn system_memory_local() -> Result<()> {
-    let _ = env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("error"))
-        .format_timestamp(None)
-        .try_init();
+fn system_memory_local_from_binary() -> Result<()> {
+    system_memory_from_binary(
+        std::env::current_dir()?
+            .join("tests/memory/data")
+            .to_str()
+            .unwrap(),
+    )
+}
 
-    let output_directory = TempDir::new()?;
+#[test]
+#[serial]
+fn system_memory_remote_from_binary() -> Result<()> {
+    system_memory_from_binary(
+        String::from(
+            whoami::username()
+                + "@localhost:"
+                + std::env::current_dir()?
+                    .join("tests/memory/data")
+                    .to_str()
+                    .unwrap(),
+        )
+        .as_str(),
+    )
+}
+
+#[test]
+fn system_memory_local() -> Result<()> {
+    let output_directory = common::init()?;
+
     let output_file = output_directory.path().join("my output file.png");
 
     let width = 2048;

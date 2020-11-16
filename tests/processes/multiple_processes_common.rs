@@ -1,19 +1,16 @@
+use super::super::common;
+
 use anyhow::{Context, Result};
 use log::debug;
 use std::collections::HashMap;
 use std::path::Path;
-use tempfile::TempDir;
 
 use cgg::config::PluginsConfig;
 use cgg::processes::processes::ProcessesData;
 use cgg::rrdtool::{rrdtool::Plugins, rrdtool::Rrdtool};
 
 pub fn multiple_processes<'a>(input_dir: &'a Path) -> Result<()> {
-    let _ = env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("error"))
-        .format_timestamp(None)
-        .try_init();
-
-    let output_directory = TempDir::new()?;
+    let output_directory = common::init()?;
     let output_file = output_directory.path().join("my output file.png");
 
     let width = 2048;
@@ -65,11 +62,7 @@ pub fn multiple_processes<'a>(input_dir: &'a Path) -> Result<()> {
 }
 
 pub fn multiple_processes_multiple_files<'a>(input_dir: &'a Path) -> Result<()> {
-    let _ = env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("error"))
-        .format_timestamp(None)
-        .try_init();
-
-    let output_directory = TempDir::new()?;
+    let output_directory = common::init()?;
     let output_file = output_directory.path().join("other_output_file.png");
 
     let end = 1604957225;
@@ -155,11 +148,7 @@ pub fn multiple_processes_multiple_files<'a>(input_dir: &'a Path) -> Result<()> 
 }
 
 pub fn multiple_processes_local_filtered_names<'a>(input_dir: &'a Path) -> Result<()> {
-    let _ = env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("error"))
-        .format_timestamp(None)
-        .try_init();
-
-    let output_directory = TempDir::new()?;
+    let output_directory = common::init()?;
     let output_file = output_directory.path().join("my filtered processes.png");
 
     let width = 2048;
