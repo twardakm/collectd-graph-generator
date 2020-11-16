@@ -47,7 +47,7 @@ pub enum Target {
 }
 
 /// Enum for choosing collectd plugins
-#[derive(Copy, Clone, PartialEq, Eq, Hash)]
+#[derive(Copy, Clone, PartialEq, Eq, Hash, Debug)]
 pub enum Plugins {
     Processes,
     Memory,

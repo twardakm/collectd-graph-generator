@@ -4,9 +4,36 @@ use tempfile::TempDir;
 
 use cgg::config::PluginsConfig;
 use std::collections::HashMap;
+use std::process::Command;
 
 use cgg::memory::{memory_data::MemoryData, memory_type::MemoryType};
 use cgg::rrdtool::rrdtool::{Plugins, Rrdtool};
+
+#[test]
+fn system_memory_local_from_binary() -> Result<()> {
+    let _ = env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("error"))
+        .format_timestamp(None)
+        .try_init();
+
+    let input_dir = std::env::current_dir()?.join("tests/memory/data");
+    let exec_dir = std::env::current_dir()?.join("target/debug/cgg");
+    let output_directory = TempDir::new()?;
+
+    let status = Command::new(exec_dir)
+        .arg("-i")
+        .arg(input_dir)
+        .arg("-p")
+        .arg("memory")
+        .arg("-o")
+        .arg(output_directory.path().join("out.png").to_str().unwrap())
+        .arg("-t")
+        .arg("last 5 minutes")
+        .status()?;
+
+    assert!(status.success());
+
+    Ok(())
+}
 
 #[test]
 fn system_memory_local() -> Result<()> {

@@ -30,6 +30,7 @@ pub struct Config<'a> {
     pub plugins_config: PluginsConfig,
 }
 
+#[derive(Debug)]
 pub struct PluginsConfig {
     /// Map of plugins data
     pub data: HashMap<rrdtool::rrdtool::Plugins, Box<dyn Any + 'static>>,
@@ -93,26 +94,22 @@ impl<'a> Config<'a> {
 
         for plugin in plugins.iter() {
             match plugin {
-                Plugins::Memory => plugins_config
-                    .data
-                    .insert(
-                        *plugin,
-                        Box::new(
-                            Config::get_memory_data(cli, &plugins)
-                                .context("Failed to get memory data")?,
-                        ),
-                    )
-                    .context("Failed to insert memory data into map")?,
-                Plugins::Processes => plugins_config
-                    .data
-                    .insert(
-                        *plugin,
-                        Box::new(
-                            Config::get_processes_data(cli, &plugins)
-                                .context("Failed to get processes data")?,
-                        ),
-                    )
-                    .context("Failed to insert processes data into map")?,
+                Plugins::Memory => plugins_config.data.insert(
+                    *plugin,
+                    Box::new(
+                        Config::get_memory_data(cli, &plugins)
+                            .unwrap()
+                            .context("Failed to get memory data")?,
+                    ),
+                ),
+                Plugins::Processes => plugins_config.data.insert(
+                    *plugin,
+                    Box::new(
+                        Config::get_processes_data(cli, &plugins)
+                            .unwrap()
+                            .context("Failed to get processes data")?,
+                    ),
+                ),
             };
         }
 
