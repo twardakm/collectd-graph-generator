@@ -67,7 +67,8 @@ pub mod tests {
     use super::*;
 
     #[test]
-    pub fn memory_type_from_str() -> Result<()> {
+    fn memory_type_string_conversion() -> Result<()> {
+        assert!(MemoryType::Buffered == MemoryType::from_str("buffered").unwrap());
         assert!(MemoryType::Cached == MemoryType::from_str("cached").unwrap());
         assert!(MemoryType::Free == MemoryType::from_str("free").unwrap());
         assert!(MemoryType::SlabRecl == MemoryType::from_str("slab_recl").unwrap());
@@ -75,6 +76,35 @@ pub mod tests {
         assert!(MemoryType::Used == MemoryType::from_str("used").unwrap());
 
         assert!(MemoryType::from_str("some other").is_err());
+        Ok(())
+    }
+
+    #[test]
+    fn memory_type_file_names() -> Result<()> {
+        assert!(&MemoryType::Buffered
+            .to_filename()
+            .contains(&MemoryType::Buffered.to_string()));
+
+        assert!(&MemoryType::Cached
+            .to_filename()
+            .contains(&MemoryType::Cached.to_string()));
+
+        assert!(&MemoryType::Free
+            .to_filename()
+            .contains(&MemoryType::Free.to_string()));
+
+        assert!(&MemoryType::SlabRecl
+            .to_filename()
+            .contains(&MemoryType::SlabRecl.to_string()));
+
+        assert!(&MemoryType::SlabUnrecl
+            .to_filename()
+            .contains(&MemoryType::SlabUnrecl.to_string()));
+
+        assert!(&MemoryType::Used
+            .to_filename()
+            .contains(&MemoryType::Used.to_string()));
+
         Ok(())
     }
 }

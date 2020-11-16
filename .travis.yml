@@ -27,7 +27,7 @@ script:
   - export RUSTFLAGS="-Zprofile -Ccodegen-units=1 -Copt-level=0 -Clink-dead-code -Coverflow-checks=off -Zpanic_abort_tests -Cpanic=abort"
   - export RUSTDOCFLAGS="-Cpanic=abort"
   - cargo build --verbose $CARGO_OPTIONS
-  - cargo test --verbose $CARGO_OPTIONS
+  - RUST_LOG=trace cargo test --verbose $CARGO_OPTIONS -- --nocapture
   - |
     zip -0 ccov.zip `find . \( -name "cgg*.gc*" \) -print`;
     ./grcov ccov.zip -s . -t lcov --llvm --branch --ignore-not-existing --ignore "/*" --ignore "src/main.rs" --ignore "src/lib.rs" --excl-start "#\[cfg\(test\)\]" --excl-br-start "#\[cfg\(test\)\]" --excl-line "#\[derive\(|.*\!" --excl-br-line "#\[derive\(|.*\!" -o lcov.info;
