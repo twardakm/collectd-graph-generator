@@ -58,7 +58,10 @@ impl ToString for MemoryType {
 
 impl<'a> config::Config<'a> {
     pub fn get_memory_types(cli: &'a clap::ArgMatches) -> Result<Vec<MemoryType>> {
-        config::Config::get_vec_of_type_from_cli::<MemoryType>(cli.value_of("memory").unwrap())
+        match cli.value_of("memory") {
+            Some(value) => config::Config::get_vec_of_type_from_cli::<MemoryType>(value),
+            None => anyhow::bail!("Didn't find memory in command line"),
+        }
     }
 }
 
