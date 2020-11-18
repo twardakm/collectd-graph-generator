@@ -7,7 +7,6 @@ use log::trace;
 pub struct GraphArguments {
     /// Local or Remote
     pub target: Target,
-    /// Arguments
     /// First dimension splits it between files,
     /// Second dimension holds the arguments
     pub args: Vec<Vec<String>>,

@@ -161,12 +161,6 @@ impl Rrdtool {
         Ok(self)
     }
 
-    /// Add custom argument to rrdtool
-    pub fn with_custom_argument(&mut self, arg: String) -> Result<&mut Self> {
-        self.common_args.push(arg);
-        Ok(self)
-    }
-
     /// Execute command
     pub fn exec(&mut self) -> Result<()> {
         match self.target {
