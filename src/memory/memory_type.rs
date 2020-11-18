@@ -3,7 +3,8 @@ use anyhow::Result;
 use std::str::FromStr;
 use std::string::ToString;
 
-/// Type of system memory to draw on graph
+/// Collectd collects multiple types of memory used by operating system
+/// This enum allows to choose which one should be drawn on a graph
 #[derive(Copy, Clone, PartialEq, Debug)]
 pub enum MemoryType {
     Buffered,
@@ -15,6 +16,18 @@ pub enum MemoryType {
 }
 
 impl MemoryType {
+    /// Returns filename used to store data for particular memory type
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use cgg::memory::memory_type::MemoryType;
+    ///
+    /// let filename = MemoryType::SlabRecl.to_filename();
+    ///
+    /// assert_eq!("memory-slab_recl.rrd", filename);
+    /// ```
+    ///
     pub fn to_filename(&self) -> &str {
         match self {
             MemoryType::Buffered => "memory-buffered.rrd",
@@ -27,6 +40,8 @@ impl MemoryType {
     }
 }
 
+/// Returns [`MemoryType`] from str, which allows to convert command line arguments
+/// to appropriate struct
 impl FromStr for MemoryType {
     type Err = ();
 
@@ -43,6 +58,7 @@ impl FromStr for MemoryType {
     }
 }
 
+/// Converts [`MemoryType`] to descriptive string which is used as a legend on a graphs
 impl ToString for MemoryType {
     fn to_string(&self) -> String {
         String::from(match self {
@@ -57,6 +73,12 @@ impl ToString for MemoryType {
 }
 
 impl<'a> config::Config<'a> {
+    /// Returs vector of [`MemoryType`] from command line arguments.
+    /// User may want to draw only chosen memory types.
+    ///
+    /// # Arguments
+    /// * `cli` - A reference to [`clap::ArgMatches`] to get data from user
+    ///
     pub fn get_memory_types(cli: &'a clap::ArgMatches) -> Result<Vec<MemoryType>> {
         match cli.value_of("memory") {
             Some(value) => config::Config::get_vec_of_type_from_cli::<MemoryType>(value),
