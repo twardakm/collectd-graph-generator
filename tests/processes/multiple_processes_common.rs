@@ -6,7 +6,7 @@ use std::collections::HashMap;
 use std::path::Path;
 
 use cgg::config::PluginsConfig;
-use cgg::processes::processes::ProcessesData;
+use cgg::processes::processes_data::ProcessesData;
 use cgg::rrdtool::{rrdtool::Plugins, rrdtool::Rrdtool};
 
 pub fn multiple_processes<'a>(input_dir: &'a Path) -> Result<()> {

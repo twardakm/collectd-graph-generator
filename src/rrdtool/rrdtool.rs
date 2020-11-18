@@ -142,7 +142,7 @@ impl Rrdtool {
                 Plugins::Processes => {
                     self.enter_plugin(
                         data.as_ref()
-                            .downcast_ref::<processes::processes::ProcessesData>()
+                            .downcast_ref::<processes::processes_data::ProcessesData>()
                             .context("Failed to cast ProcessData")?,
                     )
                     .context("Failed \"process\" plugin")?;

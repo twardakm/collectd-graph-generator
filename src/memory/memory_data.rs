@@ -32,7 +32,7 @@ impl<'a> config::Config<'a> {
     ///
     /// # Arguments
     /// * `cli` - A reference to [`clap::ArgMatches`] to get data from user
-    /// * `plugins` - Vector of plugins already red from command line
+    /// * `plugins` - Vector of plugins already read from command line
     ///
     pub fn get_memory_data(
         cli: &'a clap::ArgMatches,
