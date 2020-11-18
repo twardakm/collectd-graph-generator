@@ -103,12 +103,36 @@ fn multiple_processes_local_from_binary_wrong_max_processes_param() -> Result<()
         .arg("-o")
         .arg(output_directory.path().join("out.png").to_str().unwrap())
         .arg("-t")
-        .arg("last 2 years")
+        .arg("last 6 weeks")
         .arg("--max_processes")
         .arg("few")
         .status()?;
 
     assert!(!status.success());
+
+    Ok(())
+}
+
+#[test]
+fn multiple_processes_local_from_binary_unix_timestamps() -> Result<()> {
+    let output_directory = common::init()?;
+
+    let exec_dir = common::get_cgg_exec_path()?;
+
+    let status = Command::new(&exec_dir)
+        .arg("-i")
+        .arg(std::env::current_dir()?.join("tests/processes/data"))
+        .arg("-p")
+        .arg("processes")
+        .arg("-o")
+        .arg(output_directory.path().join("out.png").to_str().unwrap())
+        .arg("--start")
+        .arg("1605734459")
+        .arg("--end")
+        .arg("1605734470")
+        .status()?;
+
+    assert!(status.success());
 
     Ok(())
 }
