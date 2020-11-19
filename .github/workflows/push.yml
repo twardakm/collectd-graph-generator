@@ -1,4 +1,4 @@
-name: Collectd Graph Generator
+name: cgg
 
 on: [push]
 
@@ -7,9 +7,12 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout 
+      - name: Install Build Essentials
+        run: apt update && apt -y install build-essential
+      - name: Install Rust
+        run: curl https://sh.rustup.rs -sSf | bash -s -- -y
+      - name: Checkout Repository
         uses: actions/checkout@v2
-      - uses: icepuma/rust-action@master
-        with:
-          args: cargo build
+      - name: Build
+        run: $HOME/.cargo/bin/cargo build
 
