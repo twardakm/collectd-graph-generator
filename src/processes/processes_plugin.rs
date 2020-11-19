@@ -1,6 +1,6 @@
 use super::processes_data::ProcessesData;
 use super::processes_names;
-use super::rrdtool::rrdtool::{Plugin, Rrdtool};
+use super::rrdtool::common::{Plugin, Rrdtool};
 
 use anyhow::Result;
 use log::{debug, trace};
@@ -8,7 +8,7 @@ use std::path::PathBuf;
 
 impl Rrdtool {
     /// Add process to the graph
-    fn with_process_rss<'a>(
+    fn with_process_rss(
         &mut self,
         input_dir: PathBuf,
         process: String,
@@ -50,7 +50,7 @@ impl Plugin<&ProcessesData> for Rrdtool {
             ),
         };
 
-        if processes.len() == 0 {
+        if processes.is_empty() {
             anyhow::bail!("Couldn't find any processes!");
         }
 
@@ -71,19 +71,16 @@ impl Plugin<&ProcessesData> for Rrdtool {
         debug!("{} processes should be saved on {} graphs.", len, loops);
 
         for i in 0..loops {
-            let mut color = 0;
-
             let lower = i as usize * data.max_processes;
             let upper = std::cmp::min((i as usize + 1) * data.max_processes, processes.len());
 
-            for process in &processes[lower..upper] {
+            for (color, process) in processes[lower..upper].iter().enumerate() {
                 self.with_process_rss(
                     PathBuf::from(self.input_dir.as_str()),
                     String::from(process),
                     String::from(Rrdtool::COLORS[color]),
                     i as usize,
                 );
-                color += 1;
             }
         }
 
@@ -100,10 +97,7 @@ fn filter_processes(
         None => Ok(processes),
         Some(processes_to_draw) => Ok(processes
             .into_iter()
-            .filter_map(|process| match processes_to_draw.contains(&process) {
-                true => Some(process),
-                false => None,
-            })
+            .filter(|process| processes_to_draw.contains(&process))
             .collect::<Vec<String>>()),
     }
 }

@@ -72,19 +72,19 @@ impl Rrdtool {
         "#ffd8b1", "#000075", "#808080", "#000000",
     ];
 
-    pub fn new<'a>(input_dir: &'a Path) -> Rrdtool {
+    pub fn new(input_dir: &Path) -> Rrdtool {
         let (target, input_dir, username, hostname) = Rrdtool::parse_input_path(input_dir).unwrap();
 
         Rrdtool {
-            target: target,
-            input_dir: input_dir,
+            target,
+            input_dir,
             command: String::from("rrdtool"),
             subcommand: String::from(""),
             output_filename: String::from(""),
             common_args: Vec::new(),
             graph_args: GraphArguments::new(target),
-            username: username,
-            hostname: hostname,
+            username,
+            hostname,
             remote_filename: None,
         }
     }
@@ -96,7 +96,7 @@ impl Rrdtool {
     }
 
     /// Add output file
-    pub fn with_output_file<'a>(&mut self, output: String) -> Result<&mut Self> {
+    pub fn with_output_file(&mut self, output: String) -> Result<&mut Self> {
         match self.target {
             Target::Local => self.output_filename = output,
             Target::Remote => {
@@ -192,7 +192,7 @@ impl Rrdtool {
                     self.command, args
                 ))?;
 
-            if output.status.success() == false {
+            if !output.status.success() {
                 print_process_command_output(output);
 
                 anyhow::bail!(
@@ -216,8 +216,7 @@ impl Rrdtool {
             + "@"
             + self.hostname.as_ref().unwrap();
 
-        let mut index = 0 as usize;
-        for mut args in commands {
+        for (index, mut args) in commands.into_iter().enumerate() {
             // Insert network address
             args.insert(0, String::from(network_address.as_str()));
 
@@ -232,7 +231,7 @@ impl Rrdtool {
                 .output()
                 .context("Failed to execute SSH command")?;
 
-            if output.status.success() == false {
+            if !output.status.success() {
                 print_process_command_output(output);
 
                 anyhow::bail!("Failed to execute ssh command: ssh {:?}", args)
@@ -253,15 +252,13 @@ impl Rrdtool {
                 .output()
                 .context("Failed to execute SSH")?;
 
-            if output.status.success() == false {
+            if !output.status.success() {
                 print_process_command_output(output);
 
                 anyhow::bail!("Failed to scp result image back to host: scp {:?}", args)
             }
 
             info!("Successfully saved {}", output_filename);
-
-            index += 1;
         }
 
         Ok(())
@@ -323,7 +320,7 @@ impl Rrdtool {
                 let mut output_filename = String::from(self.output_filename.as_str());
                 let appendix = String::from("_") + (index + 1).to_string().as_str();
 
-                output_filename.insert_str(output_filename.rfind(".").unwrap(), appendix.as_str());
+                output_filename.insert_str(output_filename.rfind('.').unwrap(), appendix.as_str());
 
                 trace!("Returning output filename: {}", output_filename);
 
@@ -333,8 +330,8 @@ impl Rrdtool {
     }
 
     /// Parse input path to get target type, path, username and hostname
-    fn parse_input_path<'a>(
-        input_dir: &'a Path,
+    fn parse_input_path(
+        input_dir: &Path,
     ) -> Result<(Target, String, Option<String>, Option<String>)> {
         let re = regex::Regex::new(".*@.*:.*").context("Failed to create regex")?;
 

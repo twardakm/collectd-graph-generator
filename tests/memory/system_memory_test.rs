@@ -9,7 +9,7 @@ use std::collections::HashMap;
 use std::process::Command;
 
 use cgg::memory::{memory_data::MemoryData, memory_type::MemoryType};
-use cgg::rrdtool::rrdtool::{Plugins, Rrdtool};
+use cgg::rrdtool::common::{Plugins, Rrdtool};
 
 fn system_memory_from_binary(input_dir: &str) -> Result<()> {
     let output_directory = common::init()?;
@@ -46,15 +46,12 @@ fn system_memory_local_from_binary() -> Result<()> {
 #[serial]
 fn system_memory_remote_from_binary() -> Result<()> {
     system_memory_from_binary(
-        String::from(
-            whoami::username()
-                + "@localhost:"
-                + std::env::current_dir()?
-                    .join("tests/memory/data")
-                    .to_str()
-                    .unwrap(),
-        )
-        .as_str(),
+        &(whoami::username()
+            + "@localhost:"
+            + std::env::current_dir()?
+                .join("tests/memory/data")
+                .to_str()
+                .unwrap()),
     )
 }
 

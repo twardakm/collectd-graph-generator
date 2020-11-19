@@ -7,9 +7,9 @@ use std::path::Path;
 
 use cgg::config::PluginsConfig;
 use cgg::processes::processes_data::ProcessesData;
-use cgg::rrdtool::{rrdtool::Plugins, rrdtool::Rrdtool};
+use cgg::rrdtool::{common::Plugins, common::Rrdtool};
 
-pub fn multiple_processes<'a>(input_dir: &'a Path) -> Result<()> {
+pub fn multiple_processes(input_dir: &Path) -> Result<()> {
     let output_directory = common::init()?;
     let output_file = output_directory.path().join("my output file.png");
 
@@ -61,7 +61,7 @@ pub fn multiple_processes<'a>(input_dir: &'a Path) -> Result<()> {
     Ok(())
 }
 
-pub fn multiple_processes_multiple_files<'a>(input_dir: &'a Path) -> Result<()> {
+pub fn multiple_processes_multiple_files(input_dir: &Path) -> Result<()> {
     let output_directory = common::init()?;
     let output_file = output_directory.path().join("other_output_file.png");
 
@@ -147,7 +147,7 @@ pub fn multiple_processes_multiple_files<'a>(input_dir: &'a Path) -> Result<()> 
     Ok(())
 }
 
-pub fn multiple_processes_local_filtered_names<'a>(input_dir: &'a Path) -> Result<()> {
+pub fn multiple_processes_local_filtered_names(input_dir: &Path) -> Result<()> {
     let output_directory = common::init()?;
     let output_file = output_directory.path().join("my filtered processes.png");
 

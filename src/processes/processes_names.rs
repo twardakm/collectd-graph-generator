@@ -1,5 +1,5 @@
+use super::rrdtool::common::Target;
 use super::rrdtool::remote;
-use super::rrdtool::rrdtool::Target;
 
 use anyhow::{Context, Result};
 use log::trace;
@@ -27,7 +27,7 @@ pub fn get<'a>(
 }
 
 /// Get processes names from local directory
-fn get_from_local<'a>(input_dir: &'a str) -> Result<Vec<String>> {
+fn get_from_local(input_dir: &str) -> Result<Vec<String>> {
     let paths = read_dir(input_dir).context(format!("Failed to read directory: {}", input_dir))?;
 
     let processes = paths
@@ -36,7 +36,7 @@ fn get_from_local<'a>(input_dir: &'a str) -> Result<Vec<String>> {
                 path.path().file_name().and_then(|name| {
                     name.to_str()
                         .and_then(|s| s.strip_prefix("processes-"))
-                        .map(|s| String::from(s))
+                        .map(String::from)
                 })
             })
         })
@@ -61,7 +61,7 @@ fn get_from_remote<'a>(
     let processes = paths
         .iter()
         .filter_map(|path| path.strip_prefix("processes-"))
-        .map(|s| String::from(s))
+        .map(String::from)
         .collect::<Vec<String>>();
 
     trace!("Listed processes from remote directory: {:?}", processes);

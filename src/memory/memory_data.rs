@@ -1,6 +1,6 @@
 use super::super::config;
 use super::memory_type::MemoryType;
-use super::rrdtool::rrdtool::Plugins;
+use super::rrdtool::common::Plugins;
 use anyhow::{Context, Result};
 
 /// Data used by memory plugin
@@ -21,9 +21,7 @@ pub struct MemoryData {
 
 impl MemoryData {
     pub fn new(memory_types: Vec<MemoryType>) -> MemoryData {
-        MemoryData {
-            memory_types: memory_types,
-        }
+        MemoryData { memory_types }
     }
 }
 
@@ -36,7 +34,7 @@ impl<'a> config::Config<'a> {
     ///
     pub fn get_memory_data(
         cli: &'a clap::ArgMatches,
-        plugins: &Vec<Plugins>,
+        plugins: &[Plugins],
     ) -> Result<Option<MemoryData>> {
         Ok(match plugins.contains(&Plugins::Memory) {
             true => Some(MemoryData::new(

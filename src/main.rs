@@ -2,7 +2,7 @@ use cgg::config::Config;
 use clap::{load_yaml, App};
 use log::error;
 
-const EXAMPLES: &'static str = &"EXAMPLES:
+const EXAMPLES: &str = &"EXAMPLES:
     ./cgg -i /var/lib/collectd/marcin-manjaro/ -t \"last 4 hours\"\n
     ./cgg --input marcin@localhost:/var/lib/collectd/marcin-manjaro/ \\
 -t \"last 10 days\" -w 2048 -h 1024 -o processes.png\n

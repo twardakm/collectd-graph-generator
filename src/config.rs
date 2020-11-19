@@ -1,6 +1,6 @@
 use super::rrdtool;
 use anyhow::{anyhow, Context};
-use rrdtool::rrdtool::Plugins;
+use rrdtool::common::Plugins;
 use std::any::Any;
 use std::collections::HashMap;
 use std::path::Path;
@@ -33,7 +33,7 @@ pub struct Config<'a> {
 #[derive(Debug)]
 pub struct PluginsConfig {
     /// Map of plugins data
-    pub data: HashMap<rrdtool::rrdtool::Plugins, Box<dyn Any + 'static>>,
+    pub data: HashMap<Plugins, Box<dyn Any + 'static>>,
 }
 
 impl<'a> Config<'a> {
@@ -82,9 +82,7 @@ impl<'a> Config<'a> {
         };
 
         let plugins = match cli.value_of("plugins") {
-            Some(plugins) => {
-                Config::get_vec_of_type_from_cli::<rrdtool::rrdtool::Plugins>(plugins).unwrap()
-            }
+            Some(plugins) => Config::get_vec_of_type_from_cli::<Plugins>(plugins).unwrap(),
             None => unreachable!(),
         };
 
@@ -116,11 +114,11 @@ impl<'a> Config<'a> {
         Ok(Config {
             input_dir: Path::new(input),
             output_filename: output,
-            width: width,
-            height: height,
-            start: start,
-            end: end,
-            plugins_config: plugins_config,
+            width,
+            height,
+            start,
+            end,
+            plugins_config,
         })
     }
 
@@ -143,7 +141,7 @@ impl<'a> Config<'a> {
 
         match timespan.starts_with("last ") {
             true => {
-                let words: Vec<&str> = timespan.split(" ").collect();
+                let words: Vec<&str> = timespan.split(' ').collect();
 
                 if words.len() < 2 {
                     return Err(anyhow!(format!(
@@ -156,7 +154,7 @@ impl<'a> Config<'a> {
                 let mut index = 1;
                 let number = match u64::from_str(words[index]) {
                     Ok(number) => {
-                        index = index + 1;
+                        index += 1;
                         number
                     }
                     Err(_) => 1,
@@ -185,12 +183,10 @@ impl<'a> Config<'a> {
 
                 Ok((now - (number * multiplier), now))
             }
-            false => {
-                return Err(anyhow!(format!(
-                    "Unrecognized string in timespan: {}",
-                    timespan
-                )));
-            }
+            false => Err(anyhow!(format!(
+                "Unrecognized string in timespan: {}",
+                timespan
+            ))),
         }
     }
 
@@ -200,7 +196,7 @@ impl<'a> Config<'a> {
         <T as std::str::FromStr>::Err: std::fmt::Debug,
     {
         Ok(args
-            .split(",")
+            .split(',')
             .collect::<Vec<&str>>()
             .iter()
             .map(|arg| T::from_str(arg).unwrap())
@@ -269,14 +265,12 @@ pub mod tests {
 
     #[test]
     pub fn get_plugins_from_cli() -> Result<()> {
-        let plugins =
-            Config::get_vec_of_type_from_cli::<rrdtool::rrdtool::Plugins>("processes,memory")
-                .unwrap();
+        let plugins = Config::get_vec_of_type_from_cli::<Plugins>("processes,memory").unwrap();
 
         assert_eq!(2, plugins.len());
 
-        assert!(plugins.contains(&rrdtool::rrdtool::Plugins::Processes));
-        assert!(plugins.contains(&rrdtool::rrdtool::Plugins::Memory));
+        assert!(plugins.contains(&Plugins::Processes));
+        assert!(plugins.contains(&Plugins::Memory));
 
         Ok(())
     }

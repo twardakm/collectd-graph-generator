@@ -1,7 +1,7 @@
 use super::memory_data::MemoryData;
 use super::memory_type::MemoryType;
+use super::rrdtool::common::{Plugin, Rrdtool, Target};
 use super::rrdtool::remote;
-use super::rrdtool::rrdtool::{Plugin, Rrdtool, Target};
 
 use std::path::Path;
 
@@ -46,10 +46,10 @@ impl Plugin<&MemoryData> for Rrdtool {
     }
 }
 
-fn verify_data_files_exist<'a>(
+fn verify_data_files_exist(
     target: Target,
-    memory_dir: &'a Path,
-    memory_types: &Vec<MemoryType>,
+    memory_dir: &Path,
+    memory_types: &[MemoryType],
     username: &Option<String>,
     hostname: &Option<String>,
 ) -> Result<()> {
@@ -64,9 +64,9 @@ fn verify_data_files_exist<'a>(
     }
 }
 
-fn verify_data_files_exist_remote<'a>(
-    memory_dir: &'a Path,
-    memory_types: &Vec<MemoryType>,
+fn verify_data_files_exist_remote(
+    memory_dir: &Path,
+    memory_types: &[MemoryType],
     username: &str,
     hostname: &str,
 ) -> Result<()> {
@@ -78,7 +78,7 @@ fn verify_data_files_exist_remote<'a>(
     match memory_types
         .iter()
         .map(|memory_type| files.contains(&String::from(memory_type.to_filename())))
-        .all(|element| element == true)
+        .all(|element| element)
     {
         true => Ok(()),
         false => bail!(
@@ -88,14 +88,11 @@ fn verify_data_files_exist_remote<'a>(
     }
 }
 
-fn verify_data_files_exist_local<'a>(
-    memory_dir: &'a Path,
-    memory_types: &Vec<MemoryType>,
-) -> Result<()> {
+fn verify_data_files_exist_local(memory_dir: &Path, memory_types: &[MemoryType]) -> Result<()> {
     match memory_types
         .iter()
         .map(|memory_type| memory_dir.join(memory_type.to_filename()).exists())
-        .all(|element| element == true)
+        .all(|element| element)
     {
         true => Ok(()),
         false => bail!(

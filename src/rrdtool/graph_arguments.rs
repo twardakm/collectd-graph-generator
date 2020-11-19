@@ -1,4 +1,4 @@
-use super::rrdtool::Target;
+use super::common::Target;
 
 use log::trace;
 
@@ -15,7 +15,7 @@ pub struct GraphArguments {
 impl GraphArguments {
     pub fn new(target: Target) -> GraphArguments {
         GraphArguments {
-            target: target,
+            target,
             args: Vec::new(),
         }
     }

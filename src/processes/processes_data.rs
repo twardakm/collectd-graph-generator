@@ -1,5 +1,5 @@
 use super::super::config;
-use super::rrdtool::rrdtool::{Plugins, Rrdtool};
+use super::rrdtool::common::{Plugins, Rrdtool};
 
 use anyhow::{Context, Result};
 
@@ -25,8 +25,8 @@ pub struct ProcessesData {
 impl ProcessesData {
     pub fn new(max_processes: usize, processes_to_draw: Option<Vec<String>>) -> ProcessesData {
         ProcessesData {
-            max_processes: max_processes,
-            processes_to_draw: processes_to_draw,
+            max_processes,
+            processes_to_draw,
         }
     }
 }
@@ -40,7 +40,7 @@ impl<'a> config::Config<'a> {
     ///
     pub fn get_processes_data(
         cli: &'a clap::ArgMatches,
-        plugins: &Vec<Plugins>,
+        plugins: &[Plugins],
     ) -> Result<Option<ProcessesData>> {
         let processes_to_draw = match cli.value_of("processes") {
             Some(processes) => Some(
@@ -72,8 +72,8 @@ impl<'a> config::Config<'a> {
 /// Return vector of processes to draw graph for from CLI provided list
 fn parse_processes(processes: String) -> anyhow::Result<Vec<String>> {
     Ok(processes
-        .split(",")
-        .map(|s| String::from(s))
+        .split(',')
+        .map(String::from)
         .collect::<Vec<String>>())
 }
 

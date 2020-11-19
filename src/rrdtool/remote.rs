@@ -1,4 +1,4 @@
-use super::rrdtool;
+use super::common;
 
 use anyhow::{Context, Result};
 use std::process::Command;
@@ -19,7 +19,7 @@ pub fn ls(dir: &str, username: &str, hostname: &str) -> Result<Vec<String>> {
         .context("Failed to execute SSH")?;
 
     if !output.status.success() {
-        rrdtool::print_process_command_output(output);
+        common::print_process_command_output(output);
 
         anyhow::bail!(
             "Failed to list remote directories in {}:{}!",
@@ -30,7 +30,7 @@ pub fn ls(dir: &str, username: &str, hostname: &str) -> Result<Vec<String>> {
 
     Ok(String::from_utf8_lossy(&output.stdout)
         .lines()
-        .map(|s| String::from(s))
+        .map(String::from)
         .collect::<Vec<String>>())
 }
 
