@@ -7,8 +7,10 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      - name: Install sudo
+        run: apt update && apt install sudo
       - name: Install Build Essentials
-        run: apt update && apt -y install build-essential
+        run: sudo apt -y install build-essential
       - name: Install Rust
         run: curl https://sh.rustup.rs -sSf | bash -s -- -y
       - name: Checkout Repository
