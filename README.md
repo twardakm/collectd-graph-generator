@@ -2,7 +2,6 @@
 
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
 ![Collectd Graph Generator](https://github.com/twardakm/collectd-graph-generator/workflows/cgg/badge.svg)
-[![Build Status](https://travis-ci.org/twardakm/collectd-graph-generator.svg?branch=main)](https://travis-ci.org/twardakm/collectd-graph-generator)
 [![codecov](https://codecov.io/gh/twardakm/collectd-graph-generator/branch/main/graph/badge.svg)](https://codecov.io/gh/twardakm/collectd-graph-generator)
 
 ##### Table of Contents
