@@ -7,7 +7,9 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v2
-      - uses: twardakm/collectd-graph-generator@main
+      - name: Checkout 
+        uses: actions/checkout@v2
+      - uses: icepuma/rust-action@master
         with:
-          args: cd integration-test && cargo fmt -- --check && cargo clippy -- -Dwarnings && cargo test
+          args: cargo build
+
