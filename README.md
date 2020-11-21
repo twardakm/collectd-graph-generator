@@ -3,7 +3,7 @@
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
 ![Collectd Graph Generator](https://github.com/twardakm/collectd-graph-generator/workflows/main/badge.svg)
 ![Collectd Graph Generator](https://github.com/twardakm/collectd-graph-generator/workflows/dev/badge.svg)
-[![codecov](https://codecov.io/gh/twardakm/collectd-graph-generator/branch/main/graph/badge.svg)](https://codecov.io/gh/twardakm/collectd-graph-generator)
+[![Coverage Status](https://coveralls.io/repos/github/twardakm/collectd-graph-generator/badge.svg?branch=main)](https://coveralls.io/github/twardakm/collectd-graph-generator?branch=main)
 
 ##### Table of Contents
 

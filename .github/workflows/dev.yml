@@ -63,6 +63,44 @@ jobs:
           args: -- --nocapture
         env:
           RUST_LOG: trace    
+  nightly:
+    name: Test on nightly rust
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v2
+
+      - name: Install nightly toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: nightly
+          override: true
+
+      - name: Enable SSH to localhost
+        run: |
+          sudo systemctl restart ssh
+          ssh-keygen -t rsa -b 4096 -N '' -f ~/.ssh/id_rsa
+          cat ~/.ssh/id_rsa.pub | tee -a ~/.ssh/authorized_keys
+          chmod 600 ~/.ssh/authorized_keys
+          chmod 700 ~/.ssh
+          sudo chmod -c 0755 ~/
+          ssh-keyscan -H localhost >> ~/.ssh/known_hosts
+          ssh -vvv $(whoami)@localhost exit
+
+      - name: Install tools for testing
+        run: |
+          sudo apt-get update
+          sudo apt-get -y install rrdtool
+
+      - name: Run cargo test
+        uses: actions-rs/cargo@v1
+        with:
+          command: test
+          args: -- --nocapture
+        env:
+          RUST_LOG: trace
   lints:
     name: Lints
     runs-on: ubuntu-latest
