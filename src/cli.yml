@@ -2,73 +2,111 @@ name: collectd-graph-generator
 version: "0.2.1"
 author: Marcin Twardak <twardakm@gmail.com>
 about: Generates graphs from collectd data
+
+settings:
+    - ArgRequiredElseHelp
+
 args:
     - input:
         short: i
         long: input
         about: Path to the directory with collectd output
+        help: Path to the directory with collectd output
+        long_help: Path to the directory with collectd output
         takes_value: true
         required: true
+        display_order: 1
     - out:
         short: o
         long: out
         about: Output filename
+        help: Output filename
+        long_help: Output filename
         takes_value: true
         default_value: "out.png"
+        display_order: 2
     - width:
         short: w
         long: width
         about: Width of the output image
+        help: Width of the output image
+        long_help: "[SIZE] Width of the output image"
         takes_value: true
         default_value: "1024"
+        display_order: 3
     - height:
         short: h
         long: height
         about: Height of the output image
+        help: Height of the output image
+        long_help: "[SIZE] Height of the output image"
         takes_value: true
         default_value: "768"
+        display_order: 4
     - timespan:
         short: t
         long: timespan
-        about: "Descriptive timespan of data range to use, e.g.\n- last 2 hours\n- last 5 minutes\n- last 10 days"
+        about: "Descriptive timespan of data range to use"
+        help: "Descriptive timespan of data range to use"
+        long_help: "[DATA RANGE] Descriptive timespan of data range to use, e.g.\n- last 2 hours\n- last 5 minutes\n- last 10 days"
         takes_value: true
         conflicts_with:
             - start
             - end
+        display_order: 5
     - start:
         long: start
         about: Start timestamp
+        help: Start timestamp
+        long_help: "[DATA RANGE] Start timestamp"
         takes_value: true
         conflicts_with:
             - timespan
         requires:
             - end
+        display_order: 6
     - end:
         long: end
         about: End timestamp
+        help: End timestamp
+        long_help: "[DATA RANGE] End timestamp"
         takes_value: true
         conflicts_with:
             - timespan
         requires:
             - end
+        display_order: 7
     - plugins:
         long: plugins
         short: p
-        about: "List of plugins separated by comma \",\" to generate graph for, available plugins: \n- processes\n- memory"
+        about: "List of plugins"
+        help: "List of plugins"
+        long_help: "List of plugins separated by comma \",\" to generate graph for, available plugins: \n- processes\n- memory"
         takes_value: true
         default_value: "processes"
+        display_order: 8
+    - memory:
+        long: memory
+        about: "List of memory data to draw"
+        help: "List of memory data to draw"
+        long_help: "[PLUGIN: memory] List of memory data to draw separated by comma \",\", available data:\n- buffered,\n- cached,\n- free,\n- slab_recl,\n- slab_unrecl,\n- used"
+        takes_value: true
+        default_value: "free"
+        display_order: 9
     - processes:
         long: processes
         about: List of processes to generate graph for, separated by ","
+        help: List of processes to generate graph for, separated by ","
+        long_help: "[PLUGIN: processes] List of processes to generate graph for, separated by \",\", e.g.: firefox,vstudio,chrome"
         takes_value: true
+        display_order: 10
     - max_processes:
         long: max_processes
         short: m
-        about: Set maximum number of processes on one chart (up to 20). If more processes are watched by collectd, separate files will be created with appendices, e.g. processes_1.png, processes_2.png
+        about: Set maximum number of processes on one chart
+        help: Set maximum number of processes on one chart
+        long_help: "[PLUGIN: processes] Set maximum number of processes on one chart (up to 20). If more processes are watched by collectd, separate files will be created with appendices, e.g. processes_1.png, processes_2.png"
         takes_value: true
-    - memory:
-        long: memory
-        about: "List of memory data to draw separated by comma \",\", available data:\n- buffered,\n- cached,\n- free,\n- slab_recl,\n- slab_unrecl,\n- used"
-        takes_value: true
-        default_value: "free"
+        display_order: 11
+
 
