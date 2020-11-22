@@ -50,7 +50,7 @@ impl<'a> config::Config<'a> {
             None => None,
         };
 
-        let max_processes = match cli.value_of("max_processes") {
+        let max_processes = match cli.value_of("max-processes") {
             Some(max_processes) => Some(
                 max_processes
                     .parse::<usize>()
