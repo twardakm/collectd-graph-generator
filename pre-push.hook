@@ -1,0 +1,55 @@
+#!/bin/sh
+#
+# This hook performs basic checks to avoid unnecessary failing builds.
+#
+# To install this hook manually execute in the repo directory:
+# 
+# ln -s ../../pre-push.hook .git/hooks/pre-push
+#
+
+remote="$1"
+url="$2"
+
+echo -n "1. Building... "
+if cargo build -q; then
+  echo "Done"
+else
+  echo "Failed"
+  exit 1
+fi
+
+echo -n "2. Testing... "
+if find . -name "*.gcda" | xargs rm -rf && cargo test -q > /dev/null; then
+  echo "Done"
+else
+  echo "Failed"
+  exit 1
+fi
+
+echo -n "3. Formatting... "
+if cargo fmt --all -- --check > /dev/null; then
+  echo "Done"
+else
+  echo "Failed"
+  exit 1
+fi
+
+echo -n "4. Lints... "
+if cargo clippy -- -D warnings > /dev/null 2>&1; then
+  echo "Done"
+else
+  echo "Failed"
+  exit 1
+fi
+
+echo -n "5. Checking coverage..."
+if zip -0 ccov.zip `find . \( -name "cgg*.gc*" \) -print` > /dev/null && grcov ccov.zip -s . -t html --llvm --branch --ignore-not-existing --ignore "/*" --excl-start "#\[cfg\(test\)\]" --excl-br-start "#\[cfg\(test\)\]" --excl-line "#\[derive\(" --excl-br-line "#\[derive\(" -o ./target/debug/cov/ && find . -name "*.gcda" | xargs rm -rf > /dev/null; then
+  echo "Done. Check ./target/debug/cov/index.html"
+else
+  echo "Failed"
+  exit 1
+fi
+
+echo "Looks good to me, pushing!"
+
+exit 0
