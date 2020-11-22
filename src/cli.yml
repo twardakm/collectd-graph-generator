@@ -108,5 +108,32 @@ args:
         long_help: "[PLUGIN: processes] Set maximum number of processes on one chart (up to 20). If more processes are watched by collectd, separate files will be created with appendices, e.g. processes_1.png, processes_2.png"
         takes_value: true
         display_order: 11
+    - processes-data-type:
+        long: processes-data-type
+        about: List of data to gather about processes
+        help: List of data to gather about processes
+        long_help: "[PLUGIN: processes] List of data - comma separated values - to gather about processes, may be system wide or process related\n
+sytem wide:\n
+\t- fork_rate\n
+\t- ps_state-blocked\n
+\t- ps_state-paging\n
+\t- ps_state-running\n
+\t- ps_state-sleeping\n
+\t- ps_state-stopped\n
+\t- ps_state-zombies\n
+process related:\n
+\t- disk_octets\n
+\t- file_handles-mapped\n
+\t- io_octets\n
+\t- io_ops\n
+\t- ps_code\n
+\t- ps_count\n
+\t- ps_cputime\n
+\t- ps_data\n
+\t- ps_pagefaults\n
+\t- ps_rss [default]\n
+\t- ps_stacksize\n
+\t- ps_vm\n"
+        default_value: "ps_rss"
 
 
